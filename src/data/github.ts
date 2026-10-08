@@ -49,9 +49,18 @@ export function githubDataStore(
 		}
 
 		// An orphan branch: an empty tree and a commit with no parent, so no history from the repo.
+		// GitHub rejects an empty tree, so the branch starts with a README that says what it is.
 		const { data: tree } = await octokit.git.createTree({
 			...ref,
-			tree: [],
+			tree: [
+				{
+					path: "README.md",
+					mode: "100644",
+					type: "blob",
+					content:
+						"FixLoop data: journal entries and the run ledger. Written by FixLoop; do not edit by hand.\n",
+				},
+			],
 		});
 
 		const { data: commit } = await octokit.git.createCommit({

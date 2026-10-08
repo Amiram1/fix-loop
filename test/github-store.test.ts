@@ -318,7 +318,11 @@ describe("githubDataStore: ensureBranch", () => {
 			"repos.getContent",
 			"repos.createOrUpdateFileContents",
 		]);
-		expect(gh.named("git.createTree")[0]).toEqual({ ...REPO, tree: [] });
+		// The first tree holds a README: GitHub rejects an empty tree.
+		expect(gh.named("git.createTree")[0]).toMatchObject({
+			...REPO,
+			tree: [expect.objectContaining({ path: "README.md" })],
+		});
 		expect(gh.named("git.createCommit")[0]).toMatchObject({
 			tree: "tree-sha",
 			parents: [],

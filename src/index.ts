@@ -143,6 +143,11 @@ export async function main(env = process.env): Promise<void> {
 		console.log(`fixloop: ${problem}`);
 	}
 
+	console.log(
+		`fixloop: stage time ${Object.entries(result.stageMs)
+			.map(([name, ms]) => `${name} ${Math.round(ms / 1000)}s`)
+			.join(", ")}`,
+	);
 	console.log(`fixloop: model spend this run $${budget.spentUsd.toFixed(4)}`);
 
 	if (!result.ok) process.exitCode = 1;
