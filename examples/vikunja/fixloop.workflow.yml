@@ -1,0 +1,49 @@
+# Workflow for the Vikunja repo. Copy to .github/workflows/fixloop.yml in the target repo.
+#
+# The reproduction stage runs the repo's own tests, so the runner needs the same toolchain CI uses:
+# Go (for backend tests), Node and pnpm (for frontend tests), and Docker (for the app stack),
+# which GitHub-hosted runners already include.
+#
+# Note: `uses:` below points at the FixLoop Action. It must be a public repo or a repo in the same
+# account for the call to resolve. While FixLoop is private, run this from a copy of the FixLoop repo.
+name: FixLoop
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: fixloop-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  fixloop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Reads the exact version from frontend/package.json's packageManager field (pnpm@11.27.0).
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: Amiram1/fix-loop@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
