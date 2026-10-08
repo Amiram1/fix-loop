@@ -3,3 +3,6 @@ dist/*
 !dist/action/
 coverage/
 .env
+
+# Local agent worktrees
+.claude/worktrees/

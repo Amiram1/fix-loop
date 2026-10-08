@@ -7,7 +7,7 @@ const padding = [
 ];
 
 export default tseslint.config(
-	{ ignores: ["dist/**", "node_modules/**"] },
+	{ ignores: ["dist/**", "node_modules/**", ".claude/**"] },
 	{
 		files: ["**/*.ts"],
 		languageOptions: { parser: tseslint.parser },
