@@ -1,0 +1,13 @@
+# Tiny HTTP server used by test/boot.docker.test.ts to exercise bootApp against real Docker.
+# Run by hand: FIXLOOP_FIXTURE_PORT=8099 docker compose up -d --wait
+name: fixloop-boot-fixture
+services:
+  web:
+    image: python:3-alpine
+    command: python -m http.server 8099
+    ports: ["${FIXLOOP_FIXTURE_PORT:-8099}:8099"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
