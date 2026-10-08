@@ -2,8 +2,8 @@ name: FixLoop
 description: Triage and fix bugs reported as GitHub issues
 inputs:
   anthropic-api-key:
-    description: Anthropic API key
-    required: true
+    description: Anthropic API key (not used until the agent stages land)
+    required: false
   slack-webhook:
     description: Optional Slack incoming webhook for escalations
     required: false

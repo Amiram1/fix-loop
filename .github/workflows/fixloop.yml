@@ -1,0 +1,23 @@
+name: FixLoop
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: fixloop-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  fixloop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
