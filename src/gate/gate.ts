@@ -77,7 +77,13 @@ export function evaluateGate(
 
 	let decision: string;
 
-	if (confidence >= ready && !risky) {
+	// A PR is only for a fix that passes. A red target test or a red suite is never a PR,
+	// whatever the score: the weights alone would let a reproduced bug with a small diff reach 0.5.
+	if (!input.targetGreen || !input.suiteGreen) {
+		delivery = "diagnosis_only";
+		decision =
+			"The target test or the full suite is not green: no PR, the diagnosis is posted instead.";
+	} else if (confidence >= ready && !risky) {
 		delivery = "ready_pr";
 		decision = `Confidence ${shown} is at least ${ready} and nothing is risky: ready for review.`;
 	} else if (confidence >= draft) {

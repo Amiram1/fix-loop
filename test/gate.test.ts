@@ -76,8 +76,8 @@ describe("decision table", () => {
 	});
 
 	it("draft_pr when confidence is between the thresholds", () => {
-		// reproduced + target + size limit = 70/90
-		const result = gate({ suiteGreen: false });
+		// target + suite + size limit = 55/90: green, not risky, between 0.5 and 0.8
+		const result = gate({ reproduced: false });
 
 		expect(result.delivery).toBe("draft_pr");
 		expect(result.risky).toBe(false);
@@ -117,12 +117,11 @@ describe("decision table", () => {
 });
 
 describe("thresholds are inclusive", () => {
-	// Not risky means within the size limit, so these are 10 + a subset of 35, 25, 20.
-	const reproducedAndTarget = {
-		suiteGreen: false,
-	};
+	// With the target and the suite green, a diff within the limit scores 55/90 without the
+	// reproduction term and 90/90 with it. Those are the reachable non-risky scores.
+	const withinLimitNoRepro = { reproduced: false };
 
-	const at = 70 / 90;
+	const at = 55 / 90;
 
 	it("ready_pr exactly at the ready threshold", () => {
 		const autonomy = {
@@ -130,7 +129,7 @@ describe("thresholds are inclusive", () => {
 			draft_pr_min_confidence: 0.5,
 		};
 
-		expect(gate(reproducedAndTarget, autonomy).delivery).toBe("ready_pr");
+		expect(gate(withinLimitNoRepro, autonomy).delivery).toBe("ready_pr");
 	});
 
 	it("draft_pr just under the ready threshold", () => {
@@ -139,11 +138,11 @@ describe("thresholds are inclusive", () => {
 			draft_pr_min_confidence: 0.5,
 		};
 
-		expect(gate(reproducedAndTarget, autonomy).delivery).toBe("draft_pr");
+		expect(gate(withinLimitNoRepro, autonomy).delivery).toBe("draft_pr");
 	});
 
 	it("draft_pr exactly at the default draft threshold of 0.5", () => {
-		// target + suite = 45/90, with the diff over the limit.
+		// target + suite = 45/90, with the diff over the limit (so risky, and a draft).
 		const exactlyHalf = gate({
 			reproduced: false,
 			diffLines: 151,
@@ -151,33 +150,15 @@ describe("thresholds are inclusive", () => {
 
 		expect(exactlyHalf.confidence).toBe(0.5);
 		expect(exactlyHalf.delivery).toBe("draft_pr");
-
-		// reproduced + size limit = 45/90 as well.
-		const alsoHalf = gate({
-			targetGreen: false,
-			suiteGreen: false,
-		});
-
-		expect(alsoHalf.confidence).toBe(0.5);
-		expect(alsoHalf.delivery).toBe("draft_pr");
 	});
 
 	it("diagnosis_only just over the draft threshold", () => {
-		const result = gate(
-			{ targetGreen: false, suiteGreen: false },
-			{
-				ready_pr_min_confidence: 0.8,
-				draft_pr_min_confidence: 0.5 + 1e-9,
-			},
-		);
+		const result = gate(withinLimitNoRepro, {
+			ready_pr_min_confidence: 0.8,
+			draft_pr_min_confidence: at + 1e-9,
+		});
 
 		expect(result.delivery).toBe("diagnosis_only");
-	});
-
-	it("with the default thresholds, 0.78 is a draft and only a green suite reaches ready", () => {
-		expect(gate({ suiteGreen: false }).confidence).toBeCloseTo(0.7778, 4);
-		expect(gate({ suiteGreen: false }).delivery).toBe("draft_pr");
-		expect(gate({}).delivery).toBe("ready_pr");
 	});
 });
 

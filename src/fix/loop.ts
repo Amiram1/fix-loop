@@ -107,6 +107,8 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 
 	let accepted = false;
 
+	let acceptedSummary: string | undefined;
+
 	let rejections = 0;
 
 	let attempts = 0;
@@ -283,7 +285,7 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 				required: ["summary"],
 			},
 		},
-		run: async () => {
+		run: async (input) => {
 			attempts++;
 
 			const failure = await check();
@@ -295,6 +297,7 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 			}
 
 			accepted = true;
+			acceptedSummary = field(input, "summary").slice(0, 500);
 			return "accepted";
 		},
 	};
@@ -367,6 +370,7 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 			models,
 			attempts,
 			costUsd,
+			summary: acceptedSummary,
 		};
 	}
 

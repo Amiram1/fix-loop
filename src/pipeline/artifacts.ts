@@ -66,6 +66,8 @@ export interface FixResult {
 	attempts: number;
 	costUsd: number;
 	reason?: string;
+	/** The summary the agent gave when its fix was accepted. Model-written: show it as data. */
+	summary?: string;
 }
 
 /** What Deliver does with a fix. The gate decides this from measured signals, never from a model. */

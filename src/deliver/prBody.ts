@@ -61,7 +61,11 @@ export function renderPrBody({
 
 	const suite = fix?.status === "fixed" ? "passed" : "not passing";
 
-	const fixLine = `Changed ${files.length} ${files.length === 1 ? "file" : "files"} (${input.diffLines} changed ${input.diffLines === 1 ? "line" : "lines"}).`;
+	const measured = `Changed ${files.length} ${files.length === 1 ? "file" : "files"} (${input.diffLines} changed ${input.diffLines === 1 ? "line" : "lines"}).`;
+
+	const fixLine = fix?.summary
+		? `${inline(fix.summary.slice(0, 300))} ${measured}`
+		: measured;
 
 	const test =
 		reproduction?.testPath && reproduction.testName
