@@ -71,4 +71,25 @@ describe("parseConfig", () => {
 			),
 		).toThrow(/compose_file/);
 	});
+
+	it("defaults tests.e2e.env to empty and accepts string values", () => {
+		const e2e = minimal.replace(
+			"tests:\n",
+			"tests:\n  e2e:\n    run: pw {{file}}\n    new_test_glob: 'e2e/*.spec.ts'\n",
+		);
+
+		expect(parseConfig(e2e).tests.e2e?.env).toEqual({});
+
+		const withEnv = e2e.replace(
+			"new_test_glob: 'e2e/*.spec.ts'\n",
+			"new_test_glob: 'e2e/*.spec.ts'\n    env: { FIXLOOP_TEST_USER: fixloop }\n",
+		);
+
+		expect(parseConfig(withEnv).tests.e2e?.env).toEqual({
+			FIXLOOP_TEST_USER: "fixloop",
+		});
+		expect(() =>
+			parseConfig(withEnv.replace("fixloop }", "[1] }")),
+		).toThrow(/env/);
+	});
 });

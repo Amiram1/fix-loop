@@ -44,6 +44,8 @@ export const ConfigSchema = z.object({
 				run: z.string().min(1),
 				dir: z.string().default("."),
 				new_test_glob: z.string().min(1),
+				/** Non-secret values the e2e command needs, e.g. the seeded test user. Passed to the command, never logged. */
+				env: z.record(z.string(), z.string()).default({}),
 			})
 			.optional(),
 		full: z.string().min(1),

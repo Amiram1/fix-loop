@@ -16,6 +16,15 @@ tests:
     run: pnpm vitest run {{file}}
     dir: frontend
     new_test_glob: "frontend/src/**/*.test.ts"
+  e2e:
+    # --reporter=list: the config's html reporter would serve a report and never exit on failure.
+    # --retries=0: the config retries twice when CI is set.
+    run: pnpm exec playwright test {{file}} -g {{name}} --reporter=list --retries=0
+    dir: frontend
+    new_test_glob: "frontend/tests/e2e/fixloop/*.spec.ts"
+    env:
+      FIXLOOP_TEST_USER: fixloop
+      FIXLOOP_TEST_PASSWORD: fixloop-test-pw-1
   full: go test ./pkg/... && cd frontend && pnpm test:unit --run
 areas:
   backend: ["pkg/**", "*.go"]
