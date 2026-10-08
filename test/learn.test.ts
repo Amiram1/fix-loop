@@ -5,13 +5,24 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseConfig } from "../src/config/load.js";
 import { type DataStore, localDataStore } from "../src/memory/datastore.js";
 import { writeJournalEntry } from "../src/memory/journal.js";
+import { readRecords } from "../src/metrics/ledger.js";
 import { hintsFor } from "../src/pipeline/hints.js";
 import { learnFromRun } from "../src/pipeline/learn.js";
-import type { RunContext } from "../src/pipeline/run.js";
+import type { RunContext, RunResult } from "../src/pipeline/run.js";
 
 const config = parseConfig(
 	"app:\n  up: x\n  base_url: http://localhost:3456\ntests:\n  full: 'true'\n",
 );
+
+const result = (stageMs: Record<string, number> = {}): RunResult => ({
+	ok: true,
+	startedAt: "2026-10-01T00:00:00.000Z",
+	stageMs,
+	stages: Object.keys(stageMs).map((name) => ({
+		name,
+		state: "done" as const,
+	})),
+});
 
 function ctxWith(): RunContext {
 	return {
@@ -56,7 +67,7 @@ describe("learnFromRun", () => {
 		const problems = await learnFromRun({
 			ctx: ctxWith(),
 			runId: "local-1",
-			stageMs: { Intake: 5 },
+			result: result({ Intake: 5 }),
 			spentUsd: 0.02,
 			store,
 		});
@@ -66,6 +77,88 @@ describe("learnFromRun", () => {
 		expect(await store.read("ledger/runs.jsonl")).toContain(
 			'"runId":"local-1"',
 		);
+	});
+
+	it("writes the dashboard from the ledger, after the row is appended", async () => {
+		const store = localDataStore(root);
+
+		await learnFromRun({
+			ctx: ctxWith(),
+			runId: "local-1",
+			result: result({ Intake: 5 }),
+			spentUsd: 0.02,
+			store,
+		});
+
+		const dashboard = await store.read("dashboard.md");
+
+		expect(dashboard).toContain("# FixLoop dashboard");
+		expect(dashboard).toContain("| Runs | 1 |");
+		expect(dashboard).toContain("| #4 |");
+	});
+
+	it("records human touches as null without a counter and as counted with one", async () => {
+		const store = localDataStore(root);
+
+		const run = (countHumanTouches?: () => Promise<number>) =>
+			learnFromRun({
+				ctx: ctxWith(),
+				runId: "r",
+				result: result(),
+				spentUsd: 0,
+				store,
+				countHumanTouches,
+			});
+
+		expect(await run()).toEqual([]);
+		expect(await run(async () => 0)).toEqual([]);
+		expect(await run(async () => 2)).toEqual([]);
+
+		expect((await readRecords(store)).map((r) => r.humanTouches)).toEqual([
+			null,
+			0,
+			2,
+		]);
+	});
+
+	it("keeps the row, with null touches, when counting fails", async () => {
+		const store = localDataStore(root);
+
+		const problems = await learnFromRun({
+			ctx: ctxWith(),
+			runId: "r",
+			result: result(),
+			spentUsd: 0,
+			store,
+			countHumanTouches: async () => {
+				throw new Error("rate limited");
+			},
+		});
+
+		expect(problems).toEqual(["human touches not counted: rate limited"]);
+		expect((await readRecords(store))[0]?.humanTouches).toBeNull();
+	});
+
+	it("reports a failed dashboard write as a problem and still has the row", async () => {
+		const store = localDataStore(root);
+
+		const problems = await learnFromRun({
+			ctx: ctxWith(),
+			runId: "r",
+			result: result(),
+			spentUsd: 0,
+			store: {
+				...store,
+				write: async (file, text) => {
+					if (file === "dashboard.md") throw new Error("no room");
+
+					await store.write(file, text);
+				},
+			},
+		});
+
+		expect(problems).toEqual(["dashboard not written: no room"]);
+		expect(await readRecords(store)).toHaveLength(1);
 	});
 
 	it("reports a failed write as a problem instead of throwing", async () => {
@@ -80,7 +173,7 @@ describe("learnFromRun", () => {
 		const problems = await learnFromRun({
 			ctx: ctxWith(),
 			runId: "local-1",
-			stageMs: {},
+			result: result(),
 			spentUsd: 0,
 			store: broken,
 		});
@@ -111,7 +204,7 @@ describe("hintsFor", () => {
 		await learnFromRun({
 			ctx: ctxWith(),
 			runId: "earlier",
-			stageMs: {},
+			result: result(),
 			spentUsd: 0,
 			store,
 		});

@@ -10,6 +10,8 @@ export interface IssueInfo {
 	labels: string[];
 	/** Replies from the reporter since FixLoop last commented. Untrusted text, like the body. */
 	replies?: string[];
+	/** When the issue was opened (ISO). The start of the time-to-PR measure. */
+	issueCreatedAt?: string;
 }
 
 export interface RunContext {
@@ -36,12 +38,23 @@ export interface Reporter {
 	publish: (view: StatusView) => Promise<void>;
 }
 
+/** How one stage ended: the status comment's rows, minus "running" (nothing runs after the end). */
+export interface StageRecord {
+	name: string;
+	state: Exclude<StageState, "running">;
+	detail?: string;
+}
+
 export interface RunResult {
 	ok: boolean;
 	failedStage?: string;
 	haltedAt?: string;
+	/** When the run started (ISO). Human comments are counted from here. */
+	startedAt: string;
 	/** Wall-clock time per stage that ran, in milliseconds. Feeds the run ledger. */
 	stageMs: Record<string, number>;
+	/** The final state of every stage, in order. Feeds the run ledger. */
+	stages: StageRecord[];
 }
 
 /**
@@ -63,12 +76,27 @@ export async function runPipeline(
 		throw new Error(`unknown stage "${onlyStage}". Known stages: ${known}`);
 	}
 
+	const startedAt = new Date().toISOString();
+
 	const stageMs: Record<string, number> = {};
 
 	const rows: StatusView["stages"] = stages.map((s) => ({
 		name: s.name,
 		state: "pending" as StageState,
 	}));
+
+	const result = (
+		outcome: Pick<RunResult, "ok" | "failedStage" | "haltedAt">,
+	): RunResult => ({
+		...outcome,
+		startedAt,
+		stageMs,
+		// Nothing is still running when the pipeline returns; "pending" only satisfies the type.
+		stages: rows.map((r) => ({
+			...r,
+			state: r.state === "running" ? "pending" : r.state,
+		})),
+	});
 
 	const publish = (headline: string) =>
 		reporter.publish({ runId: ctx.runId, headline, stages: [...rows] });
@@ -109,7 +137,7 @@ export async function runPipeline(
 					};
 				}
 				await publish(`stopped at ${stage.name}`);
-				return { ok: true, haltedAt: stage.name, stageMs };
+				return result({ ok: true, haltedAt: stage.name });
 			}
 
 			rows[i] = {
@@ -140,11 +168,11 @@ export async function runPipeline(
 				detail: (err as Error).message,
 			};
 			await publish(`failed at ${stage.name}`);
-			return { ok: false, failedStage: stage.name, stageMs };
+			return result({ ok: false, failedStage: stage.name });
 		}
 		await publish("running");
 	}
 
 	await publish("finished");
-	return { ok: true, stageMs };
+	return result({ ok: true });
 }

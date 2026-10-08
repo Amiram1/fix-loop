@@ -10,11 +10,17 @@ export interface PullOutcome {
 	title?: string;
 }
 
-const REVERT_PREFIX = 'Revert "';
+/**
+ * GitHub's default title for a revert PR. Matched whole, so `Revert "Fix #10: x"` cannot revert
+ * the row for `Fix #1`.
+ */
+const revertTitle = (original: string) => `Revert "${original}"`;
 
 /**
  * Sets the row for `prNumber` to merged or closed. A merged PR titled `Revert "<title>"` also marks
  * the earlier merged row with that title as reverted. Returns whether any row changed.
+ * A revert PR is not on a `fixloop/` branch and has no row of its own. Routing those PRs here is the
+ * router's job (it is being changed separately); this handler must accept them when they arrive.
  * With retries a PR can have several rows; the latest one carries the outcome.
  * The file is rewritten from the valid rows, so a corrupt line is dropped.
  */
@@ -34,13 +40,13 @@ export async function recordPullRequestOutcome(
 		changed = true;
 	}
 
-	if (merged && title?.startsWith(REVERT_PREFIX)) {
+	if (merged && title) {
 		for (const r of records) {
 			if (
 				r !== own &&
 				r.outcome === "merged" &&
 				r.prTitle &&
-				title.includes(r.prTitle)
+				title === revertTitle(r.prTitle)
 			) {
 				r.outcome = "reverted";
 				changed = true;

@@ -17,9 +17,10 @@ Options:
   --dry-run       print status updates instead of writing to GitHub
   --stage <name>  run only this stage; the others are marked not selected
 
-  fixloop metrics [--local] [--repo owner/name]
+  fixloop metrics [--local] [--markdown] [--repo owner/name]
               print the run ledger's summary: from .fixloop/data with --local, else from the
-              fixloop-data branch of the repo (token from GITHUB_TOKEN or gh auth token)
+              fixloop-data branch of the repo (token from GITHUB_TOKEN or gh auth token);
+              --markdown prints the dashboard page instead of the text summary
 
   fixloop ping [--model <id>]   one low-effort call to check the key and its cost (default: claude-haiku-5-5)
 `;

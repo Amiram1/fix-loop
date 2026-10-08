@@ -2,7 +2,11 @@
 import { readFile } from "node:fs/promises";
 import { Octokit } from "@octokit/rest";
 import { resumeFromReplies, stopRun } from "./adapters/comments.js";
-import { fetchIssue, listOpenIssues } from "./adapters/github.js";
+import {
+	countHumanTouches,
+	fetchIssue,
+	listOpenIssues,
+} from "./adapters/github.js";
 import { loadConfig } from "./config/load.js";
 import type { FixLoopConfig } from "./config/schema.js";
 import { githubDataStore } from "./data/github.js";
@@ -181,9 +185,11 @@ export async function main(env = process.env): Promise<void> {
 	for (const problem of await learnFromRun({
 		ctx,
 		runId,
-		stageMs: result.stageMs,
+		result,
 		spentUsd: budget.spentUsd,
 		store,
+		countHumanTouches: () =>
+			countHumanTouches(octokit, ref, result.startedAt),
 	})) {
 		console.log(`fixloop: ${problem}`);
 	}
