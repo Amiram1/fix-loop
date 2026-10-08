@@ -5,6 +5,8 @@ import { resumeFromReplies } from "./adapters/comments.js";
 import { fetchIssue, listOpenIssues } from "./adapters/github.js";
 import { loadConfig } from "./config/load.js";
 import type { FixLoopConfig } from "./config/schema.js";
+import { githubDataStore } from "./data/github.js";
+import { recordPullRequestOutcome } from "./metrics/outcome.js";
 import { withBootedApp } from "./pipeline/boot.js";
 import { guard } from "./pipeline/guard.js";
 import { type RunContext, runPipeline } from "./pipeline/run.js";
@@ -37,6 +39,19 @@ export async function main(env = process.env): Promise<void> {
 	}
 
 	const octokit = new Octokit({ auth: env.GITHUB_TOKEN });
+
+	// A closed FixLoop PR only updates the ledger on the data branch; it does not run the pipeline.
+	if (command.kind === "outcome") {
+		const changed = await recordPullRequestOutcome(
+			githubDataStore(octokit, { owner, repo }),
+			command,
+		);
+
+		console.log(
+			`fixloop: PR #${command.prNumber} ${command.merged ? "merged" : "closed"}; ledger ${changed ? "updated" : "has no row for it"}`,
+		);
+		return;
+	}
 
 	const ref = { owner, repo, issue: command.issue };
 

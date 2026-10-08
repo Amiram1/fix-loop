@@ -80,7 +80,7 @@ export function parseRepoSlug(remoteUrl: string): string | undefined {
 	return match ? `${match[1]}/${match[2]}` : undefined;
 }
 
-async function resolveRepo(explicit?: string): Promise<string> {
+export async function resolveRepo(explicit?: string): Promise<string> {
 	if (explicit) return explicit;
 
 	if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
@@ -97,7 +97,7 @@ async function resolveRepo(explicit?: string): Promise<string> {
 	return slug;
 }
 
-async function resolveToken(): Promise<string> {
+export async function resolveToken(): Promise<string> {
 	if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
 
 	try {

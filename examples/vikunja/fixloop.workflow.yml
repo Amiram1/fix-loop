@@ -16,9 +16,15 @@ on:
   # unrelated comments from paying for the toolchain setup.
   issue_comment:
     types: [created]
+  # A FixLoop pull request was merged or closed: the Action records the outcome in the run ledger.
+  # The router ignores pull requests whose branch does not start with `fixloop/`.
+  pull_request:
+    types: [closed]
 
 permissions:
-  contents: read
+  # write, not read: the ledger and journal live on the `fixloop-data` branch of this repo, and
+  # the Action pushes to it (and creates it the first time) from this workflow.
+  contents: write
   issues: write
   pull-requests: write
 
@@ -26,12 +32,14 @@ jobs:
   fixloop:
     if: >-
       github.event_name == 'issues' ||
+      (github.event_name == 'pull_request' &&
+      startsWith(github.event.pull_request.head.ref, 'fixloop/')) ||
       (!github.event.issue.pull_request &&
       (contains(github.event.comment.body, '/fixloop') ||
       contains(github.event.issue.labels.*.name, 'needs-info')))
     # At job level so a skipped comment does not take the slot of a queued run.
     concurrency:
-      group: fixloop-${{ github.event.issue.number }}
+      group: fixloop-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
