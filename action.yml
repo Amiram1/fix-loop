@@ -1,0 +1,12 @@
+name: FixLoop
+description: Triage and fix bugs reported as GitHub issues
+inputs:
+  anthropic-api-key:
+    description: Anthropic API key
+    required: true
+  slack-webhook:
+    description: Optional Slack incoming webhook for escalations
+    required: false
+runs:
+  using: node20
+  main: dist/index.js

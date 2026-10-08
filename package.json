@@ -1,0 +1,22 @@
+{
+  "name": "fixloop",
+  "version": "0.0.1",
+  "description": "Triage and fix bugs reported as GitHub issues, using an agent that runs in GitHub Actions",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "fixloop": "dist/cli.js" },
+  "main": "dist/index.js",
+  "files": ["dist", "action.yml"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
