@@ -105,6 +105,9 @@ export async function main(env = process.env): Promise<void> {
 		config,
 		apiKey,
 		listOpenIssues: () => listOpenIssues(octokit, ref, 50),
+		octokit,
+		ref,
+		dryRun: false,
 	});
 
 	const result = await withBootedApp(ctx, () =>

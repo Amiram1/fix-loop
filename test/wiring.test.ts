@@ -22,7 +22,7 @@ tests:
 `);
 
 describe("buildStages", () => {
-	it("runs Intake, Context, Boot, then the pending stages, in that order", () => {
+	it("runs Intake, Context, Boot, Reproduce, Fix, Gate, Deliver, Notify, in that order", () => {
 		const stages = buildStages({
 			client: {
 				create: async () => {
@@ -46,7 +46,9 @@ describe("buildStages", () => {
 			"Boot",
 			"Reproduce",
 			"Fix",
+			"Gate",
 			"Deliver",
+			"Notify",
 		]);
 	});
 });

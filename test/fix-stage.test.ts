@@ -118,7 +118,7 @@ describe("makeFixStage", () => {
 		);
 
 		expect(outcome).toMatchObject({
-			state: "halt",
+			state: "skipped",
 			detail: "no red test to fix against",
 		});
 		expect(create).not.toHaveBeenCalled();
@@ -146,7 +146,7 @@ describe("makeFixStage", () => {
 			ctxWith("true", red),
 		);
 
-		expect(outcome).toMatchObject({ state: "halt" });
+		expect(outcome).toMatchObject({ state: "skipped" });
 		expect(outcome.detail).toMatch(/passes on a clean checkout/);
 		expect(create).not.toHaveBeenCalled();
 	});
@@ -196,7 +196,7 @@ describe("makeFixStage", () => {
 
 		const outcome = await stage({ create }).run(ctx);
 
-		expect(outcome).toMatchObject({ state: "halt" });
+		expect(outcome).toMatchObject({ state: "skipped" });
 		expect(outcome.detail).toMatch(/^not fixed \(/);
 		expect(ctx.artifacts.fix?.status).toBe("not_fixed");
 	});

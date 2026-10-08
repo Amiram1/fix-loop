@@ -6,7 +6,6 @@ import {
 	runPipeline,
 	type Stage,
 } from "../src/pipeline/run.js";
-import { PENDING_STAGES } from "../src/pipeline/stages.js";
 import type { StatusView } from "../src/ui/statusComment.js";
 
 const config = parseConfig(`
@@ -117,7 +116,15 @@ describe("runPipeline", () => {
 	it("placeholder stages report as skipped, so an empty run is visibly not real work", async () => {
 		const { views, reporter } = recorder();
 
-		await runPipeline(ctx, PENDING_STAGES, reporter);
+		const placeholders = ["A", "B"].map((name) => ({
+			name,
+			run: async () => ({
+				state: "skipped" as const,
+				detail: "not implemented yet",
+			}),
+		}));
+
+		await runPipeline(ctx, placeholders, reporter);
 
 		expect(views.at(-1)?.stages.every((s) => s.state === "skipped")).toBe(
 			true,

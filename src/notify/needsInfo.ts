@@ -1,10 +1,10 @@
 // Asks the reporter for what a reproduction needs when the run could not reproduce the bug.
 // The question is the issue's single status comment, so it is found and edited in place.
 import type { Octokit } from "@octokit/rest";
-import { type IssueRef, upsertStatusComment } from "../adapters/github.js";
+import { upsertMarkedComment } from "../adapters/comments.js";
+import type { IssueRef } from "../adapters/github.js";
 import type { DeliverResult } from "../pipeline/artifacts.js";
 import { NEEDS_INFO_LABEL } from "../router.js";
-import { STATUS_MARKER } from "../ui/statusComment.js";
 import { inline } from "./text.js";
 
 export { NEEDS_INFO_LABEL };
@@ -42,7 +42,6 @@ export function renderNeedsInfo({ reason, title }: NeedsInfoInput): string {
 		.map(([, q]) => q);
 
 	return [
-		STATUS_MARKER,
 		NEEDS_INFO_MARKER,
 		"### FixLoop · needs more information",
 		"",
@@ -65,7 +64,13 @@ export async function postNeedsInfo(
 	ref: IssueRef,
 	input: NeedsInfoInput,
 ): Promise<DeliverResult> {
-	const id = await upsertStatusComment(octokit, ref, renderNeedsInfo(input));
+	// Its own comment, so the run's final status update cannot overwrite the question.
+	const id = await upsertMarkedComment(
+		octokit,
+		ref,
+		NEEDS_INFO_MARKER,
+		renderNeedsInfo(input),
+	);
 
 	const { owner, repo } = ref;
 

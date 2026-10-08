@@ -16,8 +16,7 @@ describe("renderNeedsInfo", () => {
 		});
 
 		expect(body).toMatchInlineSnapshot(`
-			"<!-- fixloop:status -->
-			<!-- fixloop:needs-info -->
+			"<!-- fixloop:needs-info -->
 			### FixLoop · needs more information
 
 			I could not reproduce \`Tasks vanish\` from the report, so I have not tried a fix.
@@ -35,7 +34,7 @@ describe("renderNeedsInfo", () => {
 	it("carries both markers, so it is edited in place and found as a question", () => {
 		const body = renderNeedsInfo({ reason: "x", title: "t" });
 
-		expect(body).toContain(STATUS_MARKER);
+		expect(body).not.toContain(STATUS_MARKER);
 		expect(body).toContain(NEEDS_INFO_MARKER);
 	});
 
@@ -73,7 +72,7 @@ describe("renderNeedsInfo", () => {
 describe("postNeedsInfo", () => {
 	const input = { reason: "no red test", title: "t" };
 
-	it("writes the question as the status comment, edited in place on a repeat", async () => {
+	it("writes the question as its own comment, edited in place on a repeat", async () => {
 		const { octokit, state } = fakeOctokit({
 			comments: [
 				comment(
@@ -88,12 +87,13 @@ describe("postNeedsInfo", () => {
 		const result = await postNeedsInfo(octokit, REPO, input);
 
 		expect(result.status).toBe("needs_info_posted");
-		expect(state.comments).toHaveLength(1);
-		expect(state.comments[0]?.body).toContain(NEEDS_INFO_MARKER);
+		expect(state.comments).toHaveLength(2);
+		expect(state.comments[0]?.body).toBe(`${STATUS_MARKER}\nrunning`);
+		expect(state.comments[1]?.body).toContain(NEEDS_INFO_MARKER);
 
 		await postNeedsInfo(octokit, REPO, input);
 
-		expect(state.comments).toHaveLength(1);
+		expect(state.comments).toHaveLength(2);
 	});
 
 	it("creates the status comment when there is none", async () => {

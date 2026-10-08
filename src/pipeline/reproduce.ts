@@ -76,7 +76,7 @@ export function makeReproduceStage(deps: ReproduceDeps): Stage {
 				}
 
 				return {
-					state: "halt",
+					state: "skipped",
 					detail: `not reproduced: ${reproduction.reason}`,
 				};
 			} finally {

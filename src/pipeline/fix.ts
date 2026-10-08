@@ -51,7 +51,10 @@ export function makeFixStage(deps: FixDeps): Stage {
 				!repro.testName ||
 				repro.testContent === undefined
 			) {
-				return { state: "halt", detail: "no red test to fix against" };
+				return {
+					state: "skipped",
+					detail: "no red test to fix against",
+				};
 			}
 
 			const runner = deps.runners[repro.area];
@@ -126,7 +129,7 @@ export function makeFixStage(deps: FixDeps): Stage {
 				} catch (err) {
 					if (err instanceof AppStartError) {
 						return {
-							state: "halt",
+							state: "skipped",
 							detail: `could not start the app from the clean checkout: ${err.message}`,
 						};
 					}
@@ -136,7 +139,7 @@ export function makeFixStage(deps: FixDeps): Stage {
 
 				if (baseline.exitCode === 0) {
 					return {
-						state: "halt",
+						state: "skipped",
 						detail: "the red test passes on a clean checkout; it no longer shows the bug",
 					};
 				}
@@ -179,7 +182,7 @@ export function makeFixStage(deps: FixDeps): Stage {
 				const headline = (fix.reason ?? "").split("\n")[0];
 
 				return {
-					state: "halt",
+					state: "skipped",
 					detail: `not fixed (${via}): ${headline}`,
 				};
 			} finally {

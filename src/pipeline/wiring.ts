@@ -1,4 +1,6 @@
+import type { Octokit } from "@octokit/rest";
 import { briefFingerprint, headSha } from "../adapters/git.js";
+import type { IssueRef } from "../adapters/github.js";
 import { BudgetTracker } from "../agent/budget.js";
 import { createMessagesApi } from "../agent/client.js";
 import type { FixLoopConfig } from "../config/schema.js";
@@ -14,6 +16,10 @@ export interface WiringOptions {
 	config: FixLoopConfig;
 	apiKey: string | undefined;
 	listOpenIssues?: () => Promise<OpenIssue[]>;
+	/** GitHub access for Deliver and Notify. */
+	octokit?: Octokit;
+	ref?: IssueRef;
+	dryRun: boolean;
 }
 
 export interface RunWiring {
@@ -41,6 +47,9 @@ export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
 		briefFingerprint: await briefFingerprint(opts.root),
 		listOpenIssues: opts.listOpenIssues,
 		runners: defaultRunners(opts.config),
+		octokit: opts.octokit,
+		ref: opts.ref,
+		dryRun: opts.dryRun,
 	});
 
 	return { stages, budget };

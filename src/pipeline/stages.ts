@@ -1,11 +1,16 @@
+import type { Octokit } from "@octokit/rest";
+import type { IssueRef } from "../adapters/github.js";
 import type { BudgetTracker } from "../agent/budget.js";
 import type { MessagesApi } from "../agent/client.js";
 import type { BriefStore } from "../memory/store.js";
 import type { AreaRunner } from "../repro/runner.js";
 import { makeBootStage } from "./boot.js";
 import { makeContextStage } from "./context.js";
+import { makeDeliverStage } from "./deliver.js";
 import { makeFixStage } from "./fix.js";
+import { makeGateStage } from "./gate.js";
 import { makeIntakeStage, type OpenIssue } from "./intake.js";
+import { makeNotifyStage } from "./notify.js";
 import { makeReproduceStage } from "./reproduce.js";
 import type { Stage } from "./run.js";
 
@@ -20,15 +25,13 @@ export interface StageDeps {
 	briefFingerprint: string;
 	listOpenIssues?: () => Promise<OpenIssue[]>;
 	runners: Partial<Record<"backend" | "frontend", AreaRunner>>;
+	/** GitHub access for Deliver and Notify. Without it, or with dryRun, nothing is written to GitHub. */
+	octokit?: Octokit;
+	ref?: IssueRef;
+	dryRun: boolean;
 }
 
-/** Stages that are not implemented yet. They report as skipped so a run shows what is missing. */
-export const PENDING_STAGES: Stage[] = ["Deliver"].map((name) => ({
-	name,
-	run: async () => ({ state: "skipped", detail: "not implemented yet" }),
-}));
-
-/** The full pipeline in order: Intake, Context, Boot, Reproduce, Fix, then the pending Deliver. */
+/** The full pipeline in order. Boot runs after Context and before Reproduce. */
 export function buildStages(deps: StageDeps): Stage[] {
 	return [
 		makeIntakeStage({
@@ -58,6 +61,18 @@ export function buildStages(deps: StageDeps): Stage[] {
 			headSha: deps.headSha,
 			runners: deps.runners,
 		}),
-		...PENDING_STAGES,
+		makeGateStage(),
+		makeDeliverStage({
+			root: deps.root,
+			headSha: deps.headSha,
+			octokit: deps.octokit,
+			ref: deps.ref,
+			dryRun: deps.dryRun,
+		}),
+		makeNotifyStage({
+			octokit: deps.octokit,
+			ref: deps.ref,
+			dryRun: deps.dryRun,
+		}),
 	];
 }

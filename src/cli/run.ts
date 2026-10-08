@@ -155,6 +155,9 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		config,
 		apiKey: process.env.ANTHROPIC_API_KEY,
 		listOpenIssues: () => listOpenIssues(octokit, ref, OPEN_ISSUE_LIMIT),
+		octokit,
+		ref,
+		dryRun: opts.dryRun,
 	});
 
 	// Ctrl-C or a kill must not leave the app running. If the signal lands during Boot, the app is
@@ -182,6 +185,15 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		if (opts.dryRun && ctx.artifacts.fix?.diff) {
 			console.log(
 				`\n--- proposed change (${ctx.artifacts.fix.status}) ---\n${ctx.artifacts.fix.diff}`,
+			);
+		}
+
+		// A dry run shows what Deliver and Notify would have done, in full.
+		if (opts.dryRun && ctx.artifacts.delivery) {
+			const { status, url, detail } = ctx.artifacts.delivery;
+
+			console.log(
+				`\n--- delivery (${status}${url ? `, ${url}` : ""}) ---\n${detail ?? ""}`,
 			);
 		}
 
