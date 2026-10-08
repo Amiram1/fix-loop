@@ -4,6 +4,8 @@ export type Command =
 	| { kind: "start"; issue: number; actor: string }
 	| { kind: "retry"; issue: number; actor: string }
 	| { kind: "stop"; issue: number; actor: string }
+	/** The reporter answered a needs-info question. */
+	| { kind: "reply"; issue: number; actor: string }
 	| { kind: "ignore"; reason: string };
 
 export interface RoutableEvent {
@@ -12,6 +14,8 @@ export interface RoutableEvent {
 	// biome-ignore lint/suspicious/noExplicitAny: webhook payloads are untyped JSON
 	payload: Record<string, any>;
 }
+
+export const NEEDS_INFO_LABEL = "needs-info";
 
 const TRUSTED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
@@ -39,7 +43,30 @@ export function route(event: RoutableEvent): Command {
 
 		const match = COMMAND_RE.exec(body);
 
-		if (!match) return { kind: "ignore", reason: "not a fixloop command" };
+		if (!match) {
+			// Not a command: it only matters as the reporter's answer to a needs-info question.
+			const labels: unknown[] = payload.issue?.labels ?? [];
+
+			const asked = labels.some(
+				(l) =>
+					(typeof l === "string"
+						? l
+						: (l as { name?: string } | null)?.name) ===
+					NEEDS_INFO_LABEL,
+			);
+
+			const author: string | undefined = payload.issue?.user?.login;
+
+			if (asked && author && payload.sender?.login === author) {
+				return {
+					kind: "reply",
+					issue: payload.issue.number,
+					actor: author,
+				};
+			}
+
+			return { kind: "ignore", reason: "not a fixloop command" };
+		}
 
 		const association: string =
 			payload.comment.author_association ?? "NONE";

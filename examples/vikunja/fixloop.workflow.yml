@@ -11,18 +11,28 @@ name: FixLoop
 on:
   issues:
     types: [opened]
+  # A reporter's answer to a needs-info question, and `/fixloop retry|stop` from collaborators.
+  # The Action's router decides what to do with each comment. The job-level `if` below keeps
+  # unrelated comments from paying for the toolchain setup.
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
   issues: write
   pull-requests: write
 
-concurrency:
-  group: fixloop-${{ github.event.issue.number }}
-  cancel-in-progress: false
-
 jobs:
   fixloop:
+    if: >-
+      github.event_name == 'issues' ||
+      (!github.event.issue.pull_request &&
+      (contains(github.event.comment.body, '/fixloop') ||
+      contains(github.event.issue.labels.*.name, 'needs-info')))
+    # At job level so a skipped comment does not take the slot of a queued run.
+    concurrency:
+      group: fixloop-${{ github.event.issue.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

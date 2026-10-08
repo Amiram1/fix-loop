@@ -1,6 +1,7 @@
 // Action entry point: route the triggering event, guard it, then run the pipeline on the issue.
 import { readFile } from "node:fs/promises";
 import { Octokit } from "@octokit/rest";
+import { resumeFromReplies } from "./adapters/comments.js";
 import { fetchIssue, listOpenIssues } from "./adapters/github.js";
 import { loadConfig } from "./config/load.js";
 import type { FixLoopConfig } from "./config/schema.js";
@@ -8,7 +9,7 @@ import { withBootedApp } from "./pipeline/boot.js";
 import { guard } from "./pipeline/guard.js";
 import { type RunContext, runPipeline } from "./pipeline/run.js";
 import { stagesFor } from "./pipeline/wiring.js";
-import { route } from "./router.js";
+import { NEEDS_INFO_LABEL, route } from "./router.js";
 import { githubReporter } from "./ui/reporters.js";
 import { VERSION } from "./version.js";
 
@@ -50,6 +51,17 @@ export async function main(env = process.env): Promise<void> {
 	if (!verdict.allowed) {
 		console.log(`fixloop: not starting (${verdict.reason})`);
 		return;
+	}
+
+	// Collected before anything is published: publishing edits the status comment, which is what
+	// "after FixLoop last commented" is measured against.
+	if (command.kind === "reply") {
+		if (!issue.labels.includes(NEEDS_INFO_LABEL)) {
+			console.log("fixloop: not resuming (needs-info already cleared)");
+			return;
+		}
+
+		await resumeFromReplies(octokit, ref, issue);
 	}
 
 	const reporter = githubReporter(octokit, ref);
