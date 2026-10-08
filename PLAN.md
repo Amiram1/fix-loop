@@ -252,7 +252,7 @@ Expect roughly $0.50–2.00 per bug. In production, `budget.per_run_usd` caps ea
 
 ## 9. Vikunja example (demo target)
 
-- Fork Vikunja → `examples/vikunja` config + `docker-compose.fixloop.yml` (api + frontend + postgres) + seed script.
+- Use a local copy of Vikunja (no fork; the demo repo is uploaded later) → `examples/vikunja` config + `docker-compose.fixloop.yml` (api + frontend + postgres) + seed script.
 - **Planted BE bug:** e.g. task filter `due_date < X` uses wrong comparison / off-by-one in pagination → Go test reproduces.
 - **Planted FE bug:** e.g. marking task done in list view doesn't update the UI / wrong date formatting in task detail → Playwright reproduces.
 - Optional third bug that should end as DIAGNOSIS_ONLY (touches auth path) to demo the risk gate and escalation.
@@ -264,7 +264,7 @@ Expect roughly $0.50–2.00 per bug. In production, `budget.per_run_usd` caps ea
 **Phase A — Foundations (H0–6)**
 - [ ] A1 TS project, action.yml (node20, ncc bundle), vitest, lint
 - [ ] A2 `.fixloop.yml` zod schema + loader
-- [ ] A3 Fork Vikunja, compose file booting in Actions, seed script, plant 2 bugs
+- [ ] A3 Local Vikunja copy with planted bugs, compose file booting in Actions, seed script, plant 2 bugs
 - [ ] A4 Event router + guard + status comment skeleton (end-to-end "hello" on issue open)
 
 **Phase B — Core agent (H6–20)**

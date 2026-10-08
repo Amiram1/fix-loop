@@ -1,4 +1,5 @@
-# Example FixLoop config for the Vikunja demo fork (github.com/Amiram1/vikunja, branch fixloop-demo-bugs).
+# Example FixLoop config for the local Vikunja demo copy (branch fixloop-demo-bugs).
+# The demo repo is not published yet; it will be uploaded later.
 app:
   up: docker compose -f docker-compose.fixloop.yml up -d --wait
   down: docker compose -f docker-compose.fixloop.yml down -v
