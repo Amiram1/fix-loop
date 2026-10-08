@@ -1,11 +1,13 @@
 import type { BudgetTracker } from "../agent/budget.js";
 import type { MessagesApi } from "../agent/client.js";
+import type { DataStore } from "../memory/datastore.js";
 import { reproduce } from "../repro/loop.js";
 import type { AreaRunner, RunContext } from "../repro/runner.js";
 import {
 	createScratchCheckout,
 	removeScratchCheckout,
 } from "../repro/workspace.js";
+import { hintsFor } from "./hints.js";
 import type { Stage } from "./run.js";
 
 export interface ReproduceDeps {
@@ -16,6 +18,8 @@ export interface ReproduceDeps {
 	headSha: string;
 	runners: Partial<Record<"backend" | "frontend", AreaRunner>>;
 	maxTurns?: number;
+	/** Where journal entries from earlier runs are kept. Without it no hints are passed. */
+	store?: DataStore;
 }
 
 /**
@@ -63,6 +67,7 @@ export function makeReproduceStage(deps: ReproduceDeps): Stage {
 					context,
 					issue: ctx.issue,
 					maxTurns: deps.maxTurns ?? 20,
+					hints: await hintsFor(deps.store, ctx),
 					effort: ctx.config.effort.reproduce,
 				});
 

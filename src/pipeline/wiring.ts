@@ -4,6 +4,7 @@ import type { IssueRef } from "../adapters/github.js";
 import { BudgetTracker } from "../agent/budget.js";
 import { createMessagesApi } from "../agent/client.js";
 import type { FixLoopConfig } from "../config/schema.js";
+import type { DataStore } from "../memory/datastore.js";
 import { localBriefStore } from "../memory/store.js";
 import { defaultRunners } from "../repro/runners.js";
 import type { OpenIssue } from "./intake.js";
@@ -20,6 +21,8 @@ export interface WiringOptions {
 	octokit?: Octokit;
 	ref?: IssueRef;
 	dryRun: boolean;
+	/** Where journal entries and the ledger are kept between runs. */
+	dataStore?: DataStore;
 }
 
 export interface RunWiring {
@@ -50,6 +53,7 @@ export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
 		octokit: opts.octokit,
 		ref: opts.ref,
 		dryRun: opts.dryRun,
+		dataStore: opts.dataStore,
 	});
 
 	return { stages, budget };

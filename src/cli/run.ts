@@ -6,8 +6,10 @@ import { fetchIssue, listOpenIssues } from "../adapters/github.js";
 import { stopAllBooted } from "../boot/registry.js";
 import { withDevModels } from "../config/dev.js";
 import { loadConfig } from "../config/load.js";
+import { localDataStore } from "../memory/datastore.js";
 import { withBootedApp } from "../pipeline/boot.js";
 import { guard } from "../pipeline/guard.js";
+import { learnFromRun } from "../pipeline/learn.js";
 import { type RunContext, runPipeline } from "../pipeline/run.js";
 import { stagesFor } from "../pipeline/wiring.js";
 import { removeAllScratchCheckouts } from "../repro/workspace.js";
@@ -150,10 +152,13 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 
 	const root = resolve(dirname(opts.config));
 
+	const store = localDataStore(root);
+
 	const { stages, budget } = await stagesFor({
 		root,
 		config,
 		apiKey: process.env.ANTHROPIC_API_KEY,
+		dataStore: store,
 		listOpenIssues: () => listOpenIssues(octokit, ref, OPEN_ISSUE_LIMIT),
 		octokit,
 		ref,
@@ -206,6 +211,16 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 	} finally {
 		process.off("SIGINT", onSignal);
 		process.off("SIGTERM", onSignal);
+	}
+
+	for (const problem of await learnFromRun({
+		ctx,
+		runId: ctx.runId,
+		stageMs: result.stageMs,
+		spentUsd: budget.spentUsd,
+		store,
+	})) {
+		console.log(`fixloop: ${problem}`);
 	}
 
 	console.log(`fixloop: model spend this run $${budget.spentUsd.toFixed(4)}`);

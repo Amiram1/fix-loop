@@ -9,6 +9,7 @@ import { githubDataStore } from "./data/github.js";
 import { recordPullRequestOutcome } from "./metrics/outcome.js";
 import { withBootedApp } from "./pipeline/boot.js";
 import { guard } from "./pipeline/guard.js";
+import { learnFromRun } from "./pipeline/learn.js";
 import { type RunContext, runPipeline } from "./pipeline/run.js";
 import { stagesFor } from "./pipeline/wiring.js";
 import { NEEDS_INFO_LABEL, route } from "./router.js";
@@ -115,10 +116,13 @@ export async function main(env = process.env): Promise<void> {
 	// The Action passes the key as an env var or as its `anthropic-api-key` input.
 	const apiKey = env.ANTHROPIC_API_KEY ?? env["INPUT_ANTHROPIC-API-KEY"];
 
+	const store = githubDataStore(octokit, ref);
+
 	const { stages, budget } = await stagesFor({
 		root: process.cwd(),
 		config,
 		apiKey,
+		dataStore: store,
 		listOpenIssues: () => listOpenIssues(octokit, ref, 50),
 		octokit,
 		ref,
@@ -128,6 +132,16 @@ export async function main(env = process.env): Promise<void> {
 	const result = await withBootedApp(ctx, () =>
 		runPipeline(ctx, stages, reporter),
 	);
+
+	for (const problem of await learnFromRun({
+		ctx,
+		runId,
+		stageMs: result.stageMs,
+		spentUsd: budget.spentUsd,
+		store,
+	})) {
+		console.log(`fixloop: ${problem}`);
+	}
 
 	console.log(`fixloop: model spend this run $${budget.spentUsd.toFixed(4)}`);
 

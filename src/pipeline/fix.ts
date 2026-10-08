@@ -9,6 +9,7 @@ import {
 	runRedTest,
 	type WithApp,
 } from "../fix/loop.js";
+import type { DataStore } from "../memory/datastore.js";
 import {
 	type AreaRunner,
 	type RunContext,
@@ -19,6 +20,7 @@ import {
 	createScratchCheckout,
 	removeScratchCheckout,
 } from "../repro/workspace.js";
+import { hintsFor } from "./hints.js";
 import type { Stage } from "./run.js";
 
 export interface FixDeps {
@@ -28,6 +30,8 @@ export interface FixDeps {
 	headSha: string;
 	runners: Partial<Record<"backend" | "frontend", AreaRunner>>;
 	maxTurns?: number;
+	/** Where journal entries from earlier runs are kept. Without it no hints are passed. */
+	store?: DataStore;
 	/** Boots an app from a directory. Injectable for tests. */
 	boot?: typeof bootApp;
 }
@@ -160,6 +164,7 @@ export function makeFixStage(deps: FixDeps): Stage {
 					escalateModel: ctx.config.models.escalate,
 					maxAttempts: ctx.config.budget.max_fix_iterations,
 					maxTurns: deps.maxTurns ?? 30,
+					hints: await hintsFor(deps.store, ctx),
 					withApp,
 					effort: {
 						fix: ctx.config.effort.fix,

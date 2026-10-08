@@ -2,6 +2,7 @@ import type { Octokit } from "@octokit/rest";
 import type { IssueRef } from "../adapters/github.js";
 import type { BudgetTracker } from "../agent/budget.js";
 import type { MessagesApi } from "../agent/client.js";
+import type { DataStore } from "../memory/datastore.js";
 import type { BriefStore } from "../memory/store.js";
 import type { AreaRunner } from "../repro/runner.js";
 import { makeBootStage } from "./boot.js";
@@ -29,6 +30,8 @@ export interface StageDeps {
 	octokit?: Octokit;
 	ref?: IssueRef;
 	dryRun: boolean;
+	/** Journal entries from earlier runs are read from here. */
+	dataStore?: DataStore;
 }
 
 /** The full pipeline in order. Boot runs after Context and before Reproduce. */
@@ -53,6 +56,7 @@ export function buildStages(deps: StageDeps): Stage[] {
 			root: deps.root,
 			headSha: deps.headSha,
 			runners: deps.runners,
+			store: deps.dataStore,
 		}),
 		makeFixStage({
 			client: deps.client,
@@ -60,6 +64,7 @@ export function buildStages(deps: StageDeps): Stage[] {
 			root: deps.root,
 			headSha: deps.headSha,
 			runners: deps.runners,
+			store: deps.dataStore,
 		}),
 		makeGateStage(),
 		makeDeliverStage({
