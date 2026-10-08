@@ -1,9 +1,11 @@
 import type { BudgetTracker } from "../agent/budget.js";
 import type { MessagesApi } from "../agent/client.js";
 import type { BriefStore } from "../memory/store.js";
+import type { AreaRunner } from "../repro/runner.js";
 import { makeBootStage } from "./boot.js";
 import { makeContextStage } from "./context.js";
 import { makeIntakeStage, type OpenIssue } from "./intake.js";
+import { makeReproduceStage } from "./reproduce.js";
 import type { Stage } from "./run.js";
 
 export interface StageDeps {
@@ -14,17 +16,16 @@ export interface StageDeps {
 	root: string;
 	headSha: string;
 	listOpenIssues?: () => Promise<OpenIssue[]>;
+	runners: Partial<Record<"backend" | "frontend", AreaRunner>>;
 }
 
 /** Stages that are not implemented yet. They report as skipped so a run shows what is missing. */
-export const PENDING_STAGES: Stage[] = ["Reproduce", "Fix", "Deliver"].map(
-	(name) => ({
-		name,
-		run: async () => ({ state: "skipped", detail: "not implemented yet" }),
-	}),
-);
+export const PENDING_STAGES: Stage[] = ["Fix", "Deliver"].map((name) => ({
+	name,
+	run: async () => ({ state: "skipped", detail: "not implemented yet" }),
+}));
 
-/** The full pipeline in order. Boot runs after Context and before Reproduce. */
+/** The full pipeline in order: Intake, Context, Boot, Reproduce, then the pending Fix and Deliver. */
 export function buildStages(deps: StageDeps): Stage[] {
 	return [
 		makeIntakeStage({
@@ -40,6 +41,13 @@ export function buildStages(deps: StageDeps): Stage[] {
 			headSha: deps.headSha,
 		}),
 		makeBootStage({ cwd: deps.root }),
+		makeReproduceStage({
+			client: deps.client,
+			budget: deps.budget,
+			root: deps.root,
+			headSha: deps.headSha,
+			runners: deps.runners,
+		}),
 		...PENDING_STAGES,
 	];
 }

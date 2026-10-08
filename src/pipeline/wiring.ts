@@ -3,6 +3,7 @@ import { BudgetTracker } from "../agent/budget.js";
 import { createMessagesApi } from "../agent/client.js";
 import type { FixLoopConfig } from "../config/schema.js";
 import { localBriefStore } from "../memory/store.js";
+import { defaultRunners } from "../repro/runners.js";
 import type { OpenIssue } from "./intake.js";
 import type { Stage } from "./run.js";
 import { buildStages } from "./stages.js";
@@ -38,6 +39,7 @@ export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
 		root: opts.root,
 		headSha: await headSha(opts.root),
 		listOpenIssues: opts.listOpenIssues,
+		runners: defaultRunners(opts.config),
 	});
 
 	return { stages, budget };

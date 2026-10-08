@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { withDevModels } from "../src/config/dev.js";
 import { parseConfig } from "../src/config/load.js";
 import {
@@ -135,5 +135,27 @@ describe("withDevModels", () => {
 			escalate: "claude-haiku-5-5",
 		});
 		expect(dev.app).toEqual(config.app);
+	});
+});
+
+describe("halting", () => {
+	it("stops cleanly on a halt outcome and does not run later stages", async () => {
+		const { reporter } = recorder();
+
+		const later = vi.fn(async () => ({ state: "done" as const }));
+
+		const halting: Stage = {
+			name: "A",
+			run: async () => ({ state: "halt", detail: "no bug" }),
+		};
+
+		const result = await runPipeline(
+			ctx,
+			[halting, { name: "B", run: later }],
+			reporter,
+		);
+
+		expect(result).toEqual({ ok: true, haltedAt: "A" });
+		expect(later).not.toHaveBeenCalled();
 	});
 });

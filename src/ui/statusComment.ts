@@ -2,7 +2,13 @@
 
 export const STATUS_MARKER = "<!-- fixloop:status -->";
 
-export type StageState = "pending" | "running" | "done" | "skipped" | "failed";
+export type StageState =
+	| "pending"
+	| "running"
+	| "done"
+	| "skipped"
+	| "halted"
+	| "failed";
 
 export interface StatusView {
 	runId: string;
@@ -15,6 +21,7 @@ const ICON: Record<StageState, string> = {
 	running: "🔄",
 	done: "✅",
 	skipped: "⏭️",
+	halted: "⏸️",
 	failed: "❌",
 };
 

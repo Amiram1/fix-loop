@@ -1,5 +1,5 @@
 // Outputs that earlier stages hand to later ones. Each field is owned by one stage:
-// Intake writes `intake`, Context writes `brief`, Boot writes `app`.
+// Intake writes `intake`, Context writes `brief`, Boot writes `app`, Reproduce writes `reproduction`.
 // Agents and stages import these types; change them deliberately, they are shared contracts.
 
 export type Area = "frontend" | "backend" | "unknown";
@@ -29,4 +29,21 @@ export interface RunArtifacts {
 	/** Codebase brief as Markdown (architecture, how to run and test, directory map). */
 	brief?: string;
 	app?: BootedApp;
+	reproduction?: Reproduction;
+}
+
+/** Outcome of the Reproduce stage. A run continues to Fix only when status is "reproduced". */
+export interface Reproduction {
+	status: "reproduced" | "not_reproduced";
+	area: "backend" | "frontend";
+	/** Repo-relative path of the test that fails for the reported bug. */
+	testPath?: string;
+	testName?: string;
+	/** Tail of the failing output: the evidence a reviewer reads first. */
+	evidence?: string;
+	/** Why the run ended without a reproduction. */
+	reason?: string;
+	/** How many times a test was run. */
+	attempts: number;
+	costUsd: number;
 }

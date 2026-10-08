@@ -19,7 +19,8 @@ export interface RunContext {
 }
 
 export interface StageOutcome {
-	state: "done" | "skipped";
+	/** "halt" stops the run cleanly: later stages are not run and the run is not a failure. */
+	state: "done" | "skipped" | "halt";
 	detail?: string;
 }
 
@@ -35,6 +36,7 @@ export interface Reporter {
 export interface RunResult {
 	ok: boolean;
 	failedStage?: string;
+	haltedAt?: string;
 }
 
 /**
@@ -79,6 +81,23 @@ export async function runPipeline(
 
 		try {
 			const outcome = await stage.run(ctx);
+
+			if (outcome.state === "halt") {
+				rows[i] = {
+					name: stage.name,
+					state: "halted",
+					detail: outcome.detail,
+				};
+				for (let j = i + 1; j < rows.length; j++) {
+					rows[j] = {
+						name: rows[j]?.name ?? "",
+						state: "skipped",
+						detail: "not run",
+					};
+				}
+				await publish(`stopped at ${stage.name}`);
+				return { ok: true, haltedAt: stage.name };
+			}
 
 			rows[i] = {
 				name: stage.name,
