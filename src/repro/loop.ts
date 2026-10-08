@@ -66,7 +66,7 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 	const writeTest: ToolHandler = {
 		definition: {
 			name: "write_test_file",
-			description: `Create a NEW test file. Its path must match ${runner.testGlob}. Existing files cannot be overwritten.`,
+			description: `Create a NEW test file. Its path must match one of: ${runner.testGlobs.join(", ")}. Existing files cannot be overwritten.`,
 			input_schema: {
 				type: "object",
 				properties: {
@@ -79,9 +79,12 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 		run: async (input) => {
 			const rel = safeRelativePath(field(input, "path"));
 
-			if (!rel || !matchesGlob(rel, runner.testGlob)) {
+			if (
+				!rel ||
+				!runner.testGlobs.some((glob) => matchesGlob(rel, glob))
+			) {
 				throw new Error(
-					`path must be a repo-relative path matching ${runner.testGlob}`,
+					`path must be a repo-relative path matching one of: ${runner.testGlobs.join(", ")}`,
 				);
 			}
 
@@ -141,7 +144,7 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 
 			const run = await runner.runTest({ file, name }, context);
 
-			const verdict = runner.classify(run);
+			const verdict = runner.classify(run, { file, name });
 
 			latest = {
 				file,

@@ -88,7 +88,7 @@ describe("makeReproduceStage", () => {
 	it("writes the test in a scratch checkout, reports reproduced, and leaves the user's repo alone", async () => {
 		const runner: AreaRunner = {
 			area: "backend",
-			testGlob: "*_test.go",
+			testGlobs: ["*_test.go"],
 			hints: "",
 			runTest: vi.fn(async () => ({
 				exitCode: 1,

@@ -15,8 +15,11 @@ const runner = backendRunner(configWith("go test ./{{dir}} -run ^{{name}}$"));
 
 if (!runner) throw new Error("backend runner expected");
 
-const classify = (exitCode: number, output: string) =>
-	runner.classify({ exitCode, output });
+const classify = (exitCode: number, output: string, name = "TestReproNotIn") =>
+	runner.classify(
+		{ exitCode, output },
+		{ file: "pkg/utils/zz_repro_test.go", name },
+	);
 
 const ASSERTION = `--- FAIL: TestReproNotIn (0.00s)
     zz_repro_test.go:12:
@@ -35,7 +38,11 @@ describe("backend classify", () => {
 
 	it("is RED for a failed subtest, whose line is indented", () => {
 		expect(
-			classify(1, "    --- FAIL: TestRepro/case (0.00s)\nFAIL\n").red,
+			classify(
+				1,
+				"    --- FAIL: TestRepro/case (0.00s)\nFAIL\n",
+				"TestRepro",
+			).red,
 		).toBe(true);
 	});
 
@@ -97,6 +104,19 @@ FAIL
 		).toMatch(/no test matched/);
 	});
 
+	it("is not RED when a different test failed, even if the command failed", () => {
+		const verdict = classify(
+			1,
+			"--- FAIL: TestSomethingElse (0.00s)\nFAIL\n",
+			"TestReproNotIn",
+		);
+
+		expect(verdict.red).toBe(false);
+		expect(verdict.reason).toMatch(
+			/TestReproNotIn did not report a failure/,
+		);
+	});
+
 	it("is not RED when the command fails without a failed test", () => {
 		expect(classify(1, "FAIL\tpkg/utils\t0.01s\n").red).toBe(false);
 		expect(classify(124, "command timed out after 600000ms").red).toBe(
@@ -124,6 +144,7 @@ FAIL	pkg/utils	0.01s
 			panic(
 				"pkg/utils.TestReproX(0x1)\n\t/tmp/x/pkg/utils/zz_repro_test.go:15 +0x20",
 			),
+			"TestReproX",
 		);
 
 		expect(verdict.red).toBe(false);
@@ -137,6 +158,7 @@ FAIL	pkg/utils	0.01s
 				panic(
 					"pkg/utils.NotIn(...)\n\t/tmp/x/pkg/utils/slice_difference.go:20 +0x20\npkg/utils.TestReproX(0x1)\n\t/tmp/x/pkg/utils/zz_repro_test.go:15 +0x20",
 				),
+				"TestReproX",
 			).red,
 		).toBe(true);
 	});
@@ -239,7 +261,7 @@ describe("backendRunner", () => {
 
 	it("exposes the area, glob and Go hints", () => {
 		expect(runner.area).toBe("backend");
-		expect(runner.testGlob).toBe("pkg/**/*_test.go");
+		expect(runner.testGlobs).toEqual(["pkg/**/*_test.go"]);
 		expect(runner.hints).toContain("TestRepro");
 	});
 });

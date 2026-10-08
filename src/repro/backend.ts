@@ -27,7 +27,7 @@ export function backendRunner(config: FixLoopConfig): AreaRunner | undefined {
 
 	return {
 		area: "backend",
-		testGlob: backend.new_test_glob,
+		testGlobs: [backend.new_test_glob],
 		hints: HINTS,
 		runTest: async ({ file, name }, ctx) => {
 			const rel = safeRelativePath(file);
@@ -63,7 +63,14 @@ export function backendRunner(config: FixLoopConfig): AreaRunner | undefined {
 const BUILD_ERROR =
 	/\[(?:build|setup) failed\]|^# \S+|^\S*\.go:\d+(?::\d+)?: /m;
 
-const FAILED_TEST = /^\s*--- FAIL: /m;
+/** Go marks each failed test, and its failed subtests, with a `--- FAIL: <name>` line. */
+function reportsFailure(output: string, name: string): boolean {
+	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+	return new RegExp(`^\\s*--- FAIL: ${escaped}(?:/\\S+)?(?=\\s|$)`, "m").test(
+		output,
+	);
+}
 
 /** First stack frame after the panic that is not Go runtime or testing code, to see who panicked. */
 function panicSite(output: string): string | undefined {
@@ -77,7 +84,10 @@ function panicSite(output: string): string | undefined {
 		);
 }
 
-export function classify({ exitCode, output }: TestRun): Classification {
+export function classify(
+	{ exitCode, output }: TestRun,
+	test: { file: string; name: string },
+): Classification {
 	if (/no test files|no Go files/.test(output)) {
 		return {
 			red: false,
@@ -103,10 +113,10 @@ export function classify({ exitCode, output }: TestRun): Classification {
 		};
 	}
 
-	if (!FAILED_TEST.test(output)) {
+	if (!reportsFailure(output, test.name)) {
 		return {
 			red: false,
-			reason: "the command failed but no test reported a failure (--- FAIL:)",
+			reason: `the command failed, but ${test.name} did not report a failure (another test may have failed)`,
 		};
 	}
 

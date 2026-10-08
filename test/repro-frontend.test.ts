@@ -36,9 +36,14 @@ function fakeExec(result: Partial<ExecResult> = {}) {
 
 const fail = (output: string) => ({ exitCode: 1, output });
 
+const TEST = { file: "frontend/src/helpers/x.test.ts", name: "TestRepro" };
+
+const classifyFor = (run: { exitCode: number; output: string }) =>
+	classifyFrontend(run, TEST);
+
 describe("classifyFrontend", () => {
 	it("is red on a Vitest assertion failure", () => {
-		const verdict = classifyFrontend(
+		const verdict = classifyFor(
 			fail(
 				" FAIL  src/x.test.ts > TestRepro > size\nAssertionError: expected '2.05 KB' to be '2 KB' // Object.is equality",
 			),
@@ -48,13 +53,24 @@ describe("classifyFrontend", () => {
 	});
 
 	it("is red on an Expected/Received diff, with colour codes", () => {
-		const verdict = classifyFrontend(
+		const verdict = classifyFor(
 			fail(
-				"\u001b[31m- Expected\u001b[39m\n\u001b[32m+ Received\u001b[39m",
+				"FAIL  src/x.test.ts > TestRepro\n\u001b[31m- Expected\u001b[39m\n\u001b[32m+ Received\u001b[39m",
 			),
 		);
 
 		expect(verdict.red).toBe(true);
+	});
+
+	it("is not red when the failing test is a different one", () => {
+		const verdict = classifyFor(
+			fail(
+				"FAIL  src/x.test.ts > TestSomethingElse\nAssertionError: expected 1 to be 2",
+			),
+		);
+
+		expect(verdict.red).toBe(false);
+		expect(verdict.reason).toMatch(/does not name TestRepro/);
 	});
 
 	it.each([
@@ -66,14 +82,14 @@ describe("classifyFrontend", () => {
 		["Error: No test suite found in file /x.test.ts"],
 		["No test files found, exiting with code 1"],
 	])("is not red for a broken test: %s", (output) => {
-		const verdict = classifyFrontend(fail(output));
+		const verdict = classifyFor(fail(output));
 
 		expect(verdict.red).toBe(false);
 		expect(verdict.reason).not.toBe("");
 	});
 
 	it("does not let an assertion marker hide a load failure", () => {
-		const verdict = classifyFrontend(
+		const verdict = classifyFor(
 			fail(
 				"AssertionError: expected 1 to be 2\nReferenceError: x is not defined",
 			),
@@ -83,7 +99,7 @@ describe("classifyFrontend", () => {
 	});
 
 	it("is not red when the test passed", () => {
-		const verdict = classifyFrontend({
+		const verdict = classifyFor({
 			exitCode: 0,
 			output: "Tests  1 passed (1)",
 		});
@@ -93,7 +109,7 @@ describe("classifyFrontend", () => {
 	});
 
 	it("is not red when it failed without any assertion", () => {
-		expect(classifyFrontend(fail("Error: timeout")).red).toBe(false);
+		expect(classifyFor(fail("Error: timeout")).red).toBe(false);
 	});
 });
 
@@ -131,7 +147,7 @@ describe("frontendRunner", () => {
 		const runner = frontendRunner(config);
 
 		expect(runner?.area).toBe("frontend");
-		expect(runner?.testGlob).toBe("frontend/src/**/*.test.ts");
+		expect(runner?.testGlobs).toEqual(["frontend/src/**/*.test.ts"]);
 		expect(runner?.hints).toMatch(/TestRepro/);
 	});
 

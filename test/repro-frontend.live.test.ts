@@ -75,10 +75,13 @@ describe("frontend reproduction, live", () => {
 				expect(result.status).toBe("reproduced");
 
 				expect(
-					classifyFrontend({
-						exitCode: 1,
-						output: result.evidence ?? "",
-					}).red,
+					classifyFrontend(
+						{ exitCode: 1, output: result.evidence ?? "" },
+						{
+							file: result.testPath ?? "",
+							name: result.testName ?? "",
+						},
+					).red,
 				).toBe(true);
 			} finally {
 				await removeScratchCheckout(repo, ctx.checkout);

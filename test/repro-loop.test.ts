@@ -38,7 +38,7 @@ function fakeRunner(
 ): AreaRunner {
 	return {
 		area: "backend",
-		testGlob: "pkg/**/*_test.go",
+		testGlobs: ["pkg/**/*_test.go"],
 		hints: "Go tests.",
 		runTest: vi.fn(async () => ({ exitCode: 1, output })),
 		classify: (run) => ({

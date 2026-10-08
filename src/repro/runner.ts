@@ -23,8 +23,8 @@ export interface Classification {
 
 export interface AreaRunner {
 	area: "backend" | "frontend";
-	/** Glob for files the agent may create, from config tests.<area>.new_test_glob. */
-	testGlob: string;
+	/** Globs for files the agent may create. A file matching any of them is allowed; the runner picks how to run it. */
+	testGlobs: string[];
 	/** Stack-specific guidance for the model: how tests are written, named and run here. */
 	hints: string;
 	/** One-time setup in the scratch checkout, such as installing dependencies. */
@@ -34,8 +34,14 @@ export interface AreaRunner {
 		test: { file: string; name: string },
 		ctx: RunContext,
 	) => Promise<TestRun>;
-	/** Decides whether a failing run failed on the bug, not on a build error or a broken test. */
-	classify: (run: TestRun) => Classification;
+	/**
+	 * Decides whether a failing run failed on the bug, not on a build error or a broken test.
+	 * Must check that the named test is the one that failed, not just that something failed.
+	 */
+	classify: (
+		run: TestRun,
+		test: { file: string; name: string },
+	) => Classification;
 }
 
 const NAME_PATTERN = /^[A-Za-z0-9_./-]{1,200}$/;

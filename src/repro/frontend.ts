@@ -49,7 +49,10 @@ const NOT_A_RUN: [RegExp, string][] = [
 const ASSERTION =
 	/AssertionError|\bexpected\b.+\bto (?:be|equal|deeply equal|strictly equal|match|contain|include|have|throw)\b|^\s*(?:[-+]\s*)?(?:Expected|Received)\b/m;
 
-export function classifyFrontend(run: TestRun): Classification {
+export function classifyFrontend(
+	run: TestRun,
+	test: { file: string; name: string },
+): Classification {
 	if (run.exitCode === 0) {
 		return {
 			red: false,
@@ -61,6 +64,13 @@ export function classifyFrontend(run: TestRun): Classification {
 
 	for (const [pattern, reason] of NOT_A_RUN) {
 		if (pattern.test(output)) return { red: false, reason };
+	}
+
+	if (!output.includes(test.name)) {
+		return {
+			red: false,
+			reason: `the failure does not name ${test.name}; the failing test is not the one written`,
+		};
 	}
 
 	if (ASSERTION.test(output)) {
@@ -96,7 +106,7 @@ export function frontendRunner(
 
 	return {
 		area: "frontend",
-		testGlob: frontend.new_test_glob,
+		testGlobs: [frontend.new_test_glob],
 		hints: HINTS,
 		prepare: async (ctx) => {
 			const dir = cwd(ctx.checkout);

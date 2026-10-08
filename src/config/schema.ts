@@ -39,6 +39,13 @@ export const ConfigSchema = z.object({
 				new_test_glob: z.string().min(1),
 			})
 			.optional(),
+		e2e: z
+			.object({
+				run: z.string().min(1),
+				dir: z.string().default("."),
+				new_test_glob: z.string().min(1),
+			})
+			.optional(),
 		full: z.string().min(1),
 	}),
 	areas: z
