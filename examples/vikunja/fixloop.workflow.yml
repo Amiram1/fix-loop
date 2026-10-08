@@ -66,21 +66,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      # Reads the exact version from frontend/package.json's packageManager field (pnpm@11.27.0).
+      # pnpm first: setup-node's pnpm cache needs the pnpm binary to find the store. The version comes
+      # from frontend/package.json's packageManager field (pnpm@11.27.0).
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: frontend/package.json
 
-      # Chromium needs system libraries on a fresh Linux runner. Installing them here keeps the
-      # reproduction step from failing on launch. The runner repeats the browser install itself.
+      # Caches the pnpm store (keyed on the lockfile), so each Fix attempt's `pnpm install` reuses it.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      # Caches the Go module and build caches (keyed on go.sum).
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The Playwright browser is the largest download in a run. Cached per lockfile version.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+
+      # Chromium needs system libraries on a fresh Linux runner, so the install runs even on a cache
+      # hit: the cache holds the browser, not the libraries.
       - name: Install Playwright browser and system libraries
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
