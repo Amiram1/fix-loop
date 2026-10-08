@@ -3,7 +3,8 @@
 app:
   # --build: the Fix stage boots the app from a checkout with a new change, so the image must be rebuilt.
   up: docker compose -f docker-compose.fixloop.yml up -d --build --wait
-  down: docker compose -f docker-compose.fixloop.yml down -v
+  # --rmi local: each boot builds new images; removing them on teardown keeps the runner's disk from filling.
+  down: docker compose -f docker-compose.fixloop.yml down -v --rmi local
   base_url: http://localhost:3456
   seed: ./scripts/fixloop-seed.sh
 logs:
