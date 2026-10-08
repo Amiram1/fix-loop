@@ -1,0 +1,100 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderPrBody > a ready fix 1`] = `
+"Fixes #12
+
+## Root cause
+
+- Failing test output: \`--- FAIL: TestDueToday (0.00s) | task_test.go:44: want 3 tasks, got 2\`
+- Fix: Changed 1 file (2 changed lines).
+
+## Failing test
+
+\`pkg/models/task_test.go\`, \`TestDueToday\`
+
+## Change
+
+- \`pkg/models/task.go\`
+
+Gate: **ready for review**, confidence 1.000.
+
+- The bug was reproduced by a failing test.
+- The target test passes.
+- The full suite passes.
+- The diff changes 2 lines, within the limit of 150.
+- Confidence 1.000 is at least 0.8 and nothing is risky: ready for review.
+
+## Risk notes
+
+- No high-risk path touched, the issue is not S1, and the diff is within the size limit.
+
+<details>
+<summary>Evidence</summary>
+
+Red test output (tail):
+
+\`\`\`
+--- FAIL: TestDueToday (0.00s)
+    task_test.go:44: want 3 tasks, got 2
+FAIL
+\`\`\`
+
+Fix run: \`claude-sonnet-5-5\` → \`claude-opus-5-5\`, 3 attempts.
+
+Full suite (\`go test ./...\`): passed.
+
+</details>
+
+<sub>Opened by FixLoop. It never merges: a person reviews and merges.</sub>
+"
+`;
+
+exports[`renderPrBody > a risky fix lists the risk reasons once, under Risk notes 1`] = `
+"Fixes #12
+
+## Root cause
+
+- Failing test output: \`--- FAIL: TestDueToday (0.00s) | task_test.go:44: want 3 tasks, got 2\`
+- Fix: Changed 1 file (2 changed lines).
+
+## Failing test
+
+\`pkg/models/task_test.go\`, \`TestDueToday\`
+
+## Change
+
+- \`pkg/user/login.go\`
+
+Gate: **draft PR**, confidence 1.000.
+
+- The bug was reproduced by a failing test.
+- The target test passes.
+- The full suite passes.
+- The diff changes 2 lines, within the limit of 150.
+- Confidence 1.000 would be enough for review, but the change is risky: opened as a draft.
+
+## Risk notes
+
+- Touches high-risk paths: pkg/user/login.go.
+- The issue is severity S1.
+
+<details>
+<summary>Evidence</summary>
+
+Red test output (tail):
+
+\`\`\`
+--- FAIL: TestDueToday (0.00s)
+    task_test.go:44: want 3 tasks, got 2
+FAIL
+\`\`\`
+
+Fix run: \`claude-sonnet-5-5\` → \`claude-opus-5-5\`, 3 attempts.
+
+Full suite (\`go test ./...\`): passed.
+
+</details>
+
+<sub>Opened by FixLoop. It never merges: a person reviews and merges.</sub>
+"
+`;
