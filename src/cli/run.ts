@@ -1,15 +1,20 @@
 import { execFile } from "node:child_process";
+import { dirname, resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import { Octokit } from "@octokit/rest";
-import { fetchIssue } from "../adapters/github.js";
+import { fetchIssue, listOpenIssues } from "../adapters/github.js";
 import { withDevModels } from "../config/dev.js";
 import { loadConfig } from "../config/load.js";
+import { withBootedApp } from "../pipeline/boot.js";
 import { guard } from "../pipeline/guard.js";
 import { type RunContext, runPipeline } from "../pipeline/run.js";
-import { DEFAULT_STAGES } from "../pipeline/stages.js";
+import { stagesFor } from "../pipeline/wiring.js";
 import { consoleReporter, githubReporter } from "../ui/reporters.js";
 
 const execFileP = promisify(execFile);
+
+/** How many open issues Intake sees when it looks for duplicates. */
+const OPEN_ISSUE_LIMIT = 50;
 
 export class UsageError extends Error {
 	override name = "UsageError";
@@ -141,7 +146,18 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		? consoleReporter()
 		: githubReporter(octokit, ref);
 
-	const result = await runPipeline(ctx, DEFAULT_STAGES, reporter, opts.stage);
+	const { stages, budget } = await stagesFor({
+		root: resolve(dirname(opts.config)),
+		config,
+		apiKey: process.env.ANTHROPIC_API_KEY,
+		listOpenIssues: () => listOpenIssues(octokit, ref, OPEN_ISSUE_LIMIT),
+	});
+
+	const result = await withBootedApp(ctx, () =>
+		runPipeline(ctx, stages, reporter, opts.stage),
+	);
+
+	console.log(`fixloop: model spend this run $${budget.spentUsd.toFixed(4)}`);
 
 	return result.ok ? 0 : 1;
 }

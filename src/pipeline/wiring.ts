@@ -1,0 +1,44 @@
+import { headSha } from "../adapters/git.js";
+import { BudgetTracker } from "../agent/budget.js";
+import { createMessagesApi } from "../agent/client.js";
+import type { FixLoopConfig } from "../config/schema.js";
+import { localBriefStore } from "../memory/store.js";
+import type { OpenIssue } from "./intake.js";
+import type { Stage } from "./run.js";
+import { buildStages } from "./stages.js";
+
+export interface WiringOptions {
+	/** Checkout of the repo being fixed. */
+	root: string;
+	config: FixLoopConfig;
+	apiKey: string | undefined;
+	listOpenIssues?: () => Promise<OpenIssue[]>;
+}
+
+export interface RunWiring {
+	stages: Stage[];
+	/** The run's spend tracker. Read it after the run to report what it cost. */
+	budget: BudgetTracker;
+}
+
+/** Builds the pipeline for one run: a fresh budget, the local brief store, and the commit under `root`. */
+export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
+	if (!opts.apiKey) {
+		throw new Error(
+			"ANTHROPIC_API_KEY is not set (add it to .env, the environment, or the Action's secrets)",
+		);
+	}
+
+	const budget = new BudgetTracker(opts.config.budget.per_run_usd);
+
+	const stages = buildStages({
+		client: createMessagesApi(opts.apiKey),
+		budget,
+		store: localBriefStore(opts.root),
+		root: opts.root,
+		headSha: await headSha(opts.root),
+		listOpenIssues: opts.listOpenIssues,
+	});
+
+	return { stages, budget };
+}

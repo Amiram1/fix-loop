@@ -1,4 +1,5 @@
 import type { Octokit } from "@octokit/rest";
+import type { OpenIssue } from "../pipeline/intake.js";
 import type { IssueInfo } from "../pipeline/run.js";
 import { STATUS_MARKER } from "../ui/statusComment.js";
 
@@ -61,4 +62,23 @@ export async function fetchIssue(
 			typeof l === "string" ? l : (l.name ?? ""),
 		),
 	};
+}
+
+/** The most recently updated open issues, without pull requests. One page only: the caller caps `limit`. */
+export async function listOpenIssues(
+	octokit: Octokit,
+	ref: IssueRef,
+	limit: number,
+): Promise<OpenIssue[]> {
+	const { data } = await octokit.issues.listForRepo({
+		owner: ref.owner,
+		repo: ref.repo,
+		state: "open",
+		per_page: Math.min(limit, 100),
+	});
+
+	return data
+		.filter((issue) => !issue.pull_request)
+		.slice(0, limit)
+		.map((issue) => ({ number: issue.number, title: issue.title }));
 }
