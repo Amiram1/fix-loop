@@ -9,7 +9,7 @@ logs:
   - { type: docker, services: [api], compose_file: docker-compose.fixloop.yml }
 tests:
   backend:
-    run: go test ./pkg/utils/ -run {{name}}
+    run: go test ./{{dir}} -run ^{{name}}$
     dir: .
     new_test_glob: "pkg/**/*_test.go"
   frontend:
