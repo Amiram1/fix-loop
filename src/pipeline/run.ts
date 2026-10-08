@@ -7,6 +7,8 @@ export interface IssueInfo {
 	title: string;
 	body: string;
 	labels: string[];
+	/** Replies from the reporter since FixLoop last commented. Untrusted text, like the body. */
+	replies?: string[];
 }
 
 export interface RunContext {

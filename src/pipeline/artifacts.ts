@@ -1,6 +1,6 @@
 // Outputs that earlier stages hand to later ones. Each field is owned by one stage:
 // Intake writes `intake`, Context writes `brief`, Boot writes `app`, Reproduce writes `reproduction`,
-// Fix writes `fix`.
+// Fix writes `fix`, the gate writes `gate`, Deliver writes `delivery`.
 // Agents and stages import these types; change them deliberately, they are shared contracts.
 
 export type Area = "frontend" | "backend" | "unknown";
@@ -32,6 +32,8 @@ export interface RunArtifacts {
 	app?: BootedApp;
 	reproduction?: Reproduction;
 	fix?: FixResult;
+	gate?: GateResult;
+	delivery?: DeliverResult;
 }
 
 /** Outcome of the Reproduce stage. A run continues to Fix only when status is "reproduced". */
@@ -64,4 +66,31 @@ export interface FixResult {
 	attempts: number;
 	costUsd: number;
 	reason?: string;
+}
+
+/** What Deliver does with a fix. The gate decides this from measured signals, never from a model. */
+export type Delivery = "ready_pr" | "draft_pr" | "diagnosis_only";
+
+/** Output of the gate (src/gate). `reasons` is short, plain text for the PR body and status comment. */
+export interface GateResult {
+	delivery: Delivery;
+	/** 0 to 1, from the weighted signals in PLAN.md section 2. */
+	confidence: number;
+	/** True when a risky path was touched, the issue is S1, or the diff is over the size limit. */
+	risky: boolean;
+	reasons: string[];
+}
+
+/** Output of Deliver (src/deliver and src/notify). A dry run reports what would have happened. */
+export interface DeliverResult {
+	status:
+		| "pr_opened"
+		| "pr_updated"
+		| "diagnosis_posted"
+		| "needs_info_posted"
+		| "dry_run"
+		| "skipped";
+	url?: string;
+	branch?: string;
+	detail?: string;
 }
