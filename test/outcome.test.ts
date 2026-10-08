@@ -154,6 +154,47 @@ describe("recordPullRequestOutcome", () => {
 		]);
 	});
 
+	it("matches the whole revert title, so a longer title does not revert a shorter one", async () => {
+		await recordPullRequestOutcome(store, {
+			prNumber: 10,
+			merged: true,
+			title: "Fix #1",
+		});
+
+		expect(
+			await recordPullRequestOutcome(store, {
+				prNumber: 20,
+				merged: true,
+				title: 'Revert "Fix #10: other"',
+			}),
+		).toBe(false);
+		expect((await outcomes())[0]).toEqual(["a", "merged"]);
+	});
+
+	it("a merged revert marks the original reverted, a closed one does not", async () => {
+		await recordPullRequestOutcome(store, {
+			prNumber: 10,
+			merged: true,
+			title: "Fix #1: tasks vanish",
+		});
+
+		await recordPullRequestOutcome(store, {
+			prNumber: 20,
+			merged: false,
+			title: 'Revert "Fix #1: tasks vanish"',
+		});
+
+		expect((await outcomes())[0]).toEqual(["a", "merged"]);
+
+		await recordPullRequestOutcome(store, {
+			prNumber: 21,
+			merged: true,
+			title: 'Revert "Fix #1: tasks vanish"',
+		});
+
+		expect((await outcomes())[0]).toEqual(["a", "reverted"]);
+	});
+
 	it("does not revert a PR that was only closed", async () => {
 		await recordPullRequestOutcome(store, {
 			prNumber: 10,

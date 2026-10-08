@@ -2,13 +2,16 @@
 // section 5 asks for. The PR outcome handler (outcome.ts) fills in `outcome` later.
 import type { DataStore } from "../memory/datastore.js";
 import type { Area, Delivery, Severity } from "../pipeline/artifacts.js";
-import type { RunContext } from "../pipeline/run.js";
+import type { RunContext, RunResult, StageRecord } from "../pipeline/run.js";
 
 export const LEDGER_PATH = "ledger/runs.jsonl";
 
 export type Outcome = "open" | "merged" | "closed" | "reverted";
 
 const OUTCOMES: readonly string[] = ["open", "merged", "closed", "reverted"];
+
+/** How the run ended: no stage failed or halted, a stage halted, a stage failed, or it was stopped. */
+export type RunStatus = "completed" | "halted" | "failed" | "stopped";
 
 export interface RunRecord {
 	runId: string;
@@ -26,8 +29,20 @@ export interface RunRecord {
 	/** Wall-clock milliseconds per stage, copied from RunResult. */
 	stageMs: Record<string, number>;
 	totalMs: number;
-	/** Not measured yet: always 0 until there is a way to see a person step in. */
-	humanTouches: number;
+	/** How each stage ended, copied from RunResult. Absent on rows written before stages were recorded. */
+	stages?: StageRecord[];
+	status?: RunStatus;
+	/** The stage that threw. Set when status is "failed". */
+	failedStage?: string;
+	/** When the issue was opened (ISO). */
+	issueCreatedAt?: string;
+	/** When the run opened or updated a PR (ISO). Time to PR is this minus issueCreatedAt. */
+	prOpenedAt?: string;
+	/**
+	 * Comments by people (not bots) on the issue since the run started. Null when not counted
+	 * (dry runs and the CLI): it must not read as "no one touched it".
+	 */
+	humanTouches: number | null;
 	/** Set when the run opened or updated a PR. */
 	prNumber?: number;
 	branch?: string;
@@ -37,17 +52,27 @@ export interface RunRecord {
 }
 
 /**
- * Builds the row from what the stages left in `ctx.artifacts`. Missing artifacts are fine: a run
- * that stopped early still gets a row. `spentUsd` is the budget's total for the run; without it
- * the cost is the sum of the stages that report one (Intake does not).
+ * Builds the row from what the stages left in `ctx.artifacts` and the run's result. Missing
+ * artifacts are fine: a run that stopped early still gets a row. `spentUsd` is the budget's total
+ * for the run; without it the cost is the sum of the stages that report one (Intake does not).
+ * `humanTouches` stays null unless the caller counted them.
  */
 export function recordFrom(
 	ctx: RunContext,
 	runId: string,
-	stageMs: Record<string, number>,
+	{ stageMs, stages }: Pick<RunResult, "stageMs" | "stages">,
 	spentUsd?: number,
+	humanTouches: number | null = null,
 ): RunRecord {
 	const { intake, reproduction, fix, gate, delivery } = ctx.artifacts;
+
+	// Read loosely so this compiles whether or not the artifacts type has the field yet.
+	const stopped = (ctx.artifacts as { stopped?: unknown } | undefined)
+		?.stopped;
+
+	const failedStage = stages.find((s) => s.state === "failed")?.name;
+
+	const now = new Date().toISOString();
 
 	const hasPr =
 		delivery?.status === "pr_opened" || delivery?.status === "pr_updated";
@@ -59,7 +84,7 @@ export function recordFrom(
 	return {
 		runId,
 		issue: ctx.issue.number,
-		createdAt: new Date().toISOString(),
+		createdAt: now,
 		area: intake?.area,
 		severity: intake?.severity,
 		delivery: gate?.delivery,
@@ -69,7 +94,19 @@ export function recordFrom(
 		costUsd: spentUsd ?? (reproduction?.costUsd ?? 0) + (fix?.costUsd ?? 0),
 		stageMs,
 		totalMs: Object.values(stageMs).reduce((a, b) => a + b, 0),
-		humanTouches: 0,
+		stages,
+		status: stopped
+			? "stopped"
+			: failedStage
+				? "failed"
+				: stages.some((s) => s.state === "halted")
+					? "halted"
+					: "completed",
+		failedStage,
+		issueCreatedAt: ctx.issue.issueCreatedAt,
+		// Learn runs right after Deliver, so now is when the PR was opened.
+		prOpenedAt: hasPr ? now : undefined,
+		humanTouches,
 		prNumber,
 		branch: hasPr ? delivery.branch : undefined,
 		outcome: "open",
@@ -120,15 +157,17 @@ export async function appendRecord(
 
 export interface Summary {
 	runs: number;
-	/** Median minutes from start to PR over the runs that opened one. Undefined when none did. */
+	/** Median minutes from the issue opening to the PR opening, over rows with both times. */
 	mttrToPrMinutes: number | undefined;
+	/** Median run duration in minutes, over the runs that opened a PR. Undefined when none did. */
+	medianRunMinutes: number | undefined;
 	/** Share of runs that got a red test. */
 	reproductionRate: number;
 	/** merged / (merged + closed). */
 	prMergeRate: number;
 	meanCostUsd: number;
-	/** Share of runs with no human touches. Always 1 while humanTouches is not measured. */
-	noHumanShare: number;
+	/** Share of runs with no human touches, among runs that have a count. Undefined when none do. */
+	noHumanShare: number | undefined;
 	/** Runs that moved to a second model. */
 	escalated: number;
 }
@@ -148,6 +187,15 @@ function median(values: number[]): number | undefined {
 		: ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
 }
 
+/** Minutes from the issue opening to the PR opening. Undefined unless the row has both times. */
+export function minutesToPr(r: RunRecord): number | undefined {
+	const ms =
+		Date.parse(r.prOpenedAt ?? "") - Date.parse(r.issueCreatedAt ?? "");
+
+	// NaN (a missing or bad time) and a negative gap both fail this and are left out.
+	return ms >= 0 ? ms / 60_000 : undefined;
+}
+
 export function summarize(records: RunRecord[]): Summary {
 	const count = (outcome: Outcome) =>
 		records.filter((r) => r.outcome === outcome).length;
@@ -156,13 +204,17 @@ export function summarize(records: RunRecord[]): Summary {
 	// merged / (merged + closed). A reverted PR shows in its row's outcome, not in this rate.
 	const merged = count("merged");
 
-	const mttrMs = median(
+	const runMs = median(
 		records.filter((r) => r.prNumber !== undefined).map((r) => r.totalMs),
 	);
 
+	// Old rows always said 0 and null means "not counted": only real counts go in the share.
+	const counted = records.filter((r) => typeof r.humanTouches === "number");
+
 	return {
 		runs: records.length,
-		mttrToPrMinutes: mttrMs === undefined ? undefined : mttrMs / 60_000,
+		mttrToPrMinutes: median(records.flatMap((r) => minutesToPr(r) ?? [])),
+		medianRunMinutes: runMs === undefined ? undefined : runMs / 60_000,
 		reproductionRate: share(
 			records.filter((r) => r.reproduced).length,
 			records.length,
@@ -172,10 +224,12 @@ export function summarize(records: RunRecord[]): Summary {
 			records.reduce((sum, r) => sum + r.costUsd, 0),
 			records.length,
 		),
-		noHumanShare: share(
-			records.filter((r) => r.humanTouches === 0).length,
-			records.length,
-		),
+		noHumanShare: counted.length
+			? share(
+					counted.filter((r) => r.humanTouches === 0).length,
+					counted.length,
+				)
+			: undefined,
 		escalated: records.filter((r) => r.models.length > 1).length,
 	};
 }

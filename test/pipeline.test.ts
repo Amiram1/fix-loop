@@ -178,3 +178,77 @@ describe("halting", () => {
 		expect(later).not.toHaveBeenCalled();
 	});
 });
+
+describe("the run result", () => {
+	const boom: Stage = {
+		name: "B",
+		run: async () => {
+			throw new Error("kaboom");
+		},
+	};
+
+	it("records when the run started and how every stage ended", async () => {
+		const before = Date.now();
+
+		const result = await runPipeline(
+			ctx,
+			[
+				ok("A"),
+				{
+					name: "B",
+					run: async () => ({ state: "skipped", detail: "n/a" }),
+				},
+			],
+			recorder().reporter,
+		);
+
+		expect(Date.parse(result.startedAt)).toBeGreaterThanOrEqual(before);
+		expect(Date.parse(result.startedAt)).toBeLessThanOrEqual(Date.now());
+		expect(result.stages).toEqual([
+			{ name: "A", state: "done", detail: undefined },
+			{ name: "B", state: "skipped", detail: "n/a" },
+		]);
+	});
+
+	it("keeps the failing stage's message and leaves later stages pending", async () => {
+		const result = await runPipeline(
+			ctx,
+			[ok("A"), boom, ok("C")],
+			recorder().reporter,
+		);
+
+		expect(result.stages.map((s) => s.state)).toEqual([
+			"done",
+			"failed",
+			"pending",
+		]);
+		expect(result.stages[1]?.detail).toBe("kaboom");
+	});
+
+	it("marks the stages after a halt as skipped", async () => {
+		const result = await runPipeline(
+			ctx,
+			[
+				{
+					name: "A",
+					run: async () => ({ state: "halt", detail: "no bug" }),
+				},
+				ok("B"),
+			],
+			recorder().reporter,
+		);
+
+		expect(result.stages).toEqual([
+			{ name: "A", state: "halted", detail: "no bug" },
+			{ name: "B", state: "skipped", detail: "not run" },
+		]);
+	});
+
+	it("is the same as the last status published", async () => {
+		const { views, reporter } = recorder();
+
+		const result = await runPipeline(ctx, [ok("A"), boom], reporter);
+
+		expect(result.stages).toEqual(views.at(-1)?.stages);
+	});
+});

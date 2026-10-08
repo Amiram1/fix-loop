@@ -216,7 +216,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 	for (const problem of await learnFromRun({
 		ctx,
 		runId: ctx.runId,
-		stageMs: result.stageMs,
+		result,
 		spentUsd: budget.spentUsd,
 		store,
 	})) {

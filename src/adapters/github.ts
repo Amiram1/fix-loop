@@ -64,7 +64,50 @@ export async function fetchIssue(
 		labels: data.labels.map((l) =>
 			typeof l === "string" ? l : (l.name ?? ""),
 		),
+		issueCreatedAt: data.created_at,
 	};
+}
+
+/** The slice of an issue comment that human-touch counting reads. */
+export interface CommentLike {
+	user?: { login: string } | null;
+	created_at: string;
+}
+
+const isBot = (login: string) =>
+	login.endsWith("[bot]") || login.toLowerCase() === "github-actions";
+
+/**
+ * How many comments are from people (not bots) and were created at or after `since`. A reply from
+ * the reporter counts, and so does a /fixloop command from a maintainer.
+ */
+export function countHumanComments(
+	comments: CommentLike[],
+	since: string,
+): number {
+	const from = Date.parse(since);
+
+	return comments.filter(
+		(c) => Date.parse(c.created_at) >= from && !isBot(c.user?.login ?? ""),
+	).length;
+}
+
+/** Human comments on the issue since `since` (ISO): the run's human touches. */
+export async function countHumanTouches(
+	octokit: Octokit,
+	ref: IssueRef,
+	since: string,
+): Promise<number> {
+	// GitHub's `since` filters on update time, which is never before creation: no new comment is missed.
+	const comments = await octokit.paginate(octokit.issues.listComments, {
+		owner: ref.owner,
+		repo: ref.repo,
+		issue_number: ref.issue,
+		since,
+		per_page: 100,
+	});
+
+	return countHumanComments(comments, since);
 }
 
 /** The most recently updated open issues, without pull requests. One page only: the caller caps `limit`. */
