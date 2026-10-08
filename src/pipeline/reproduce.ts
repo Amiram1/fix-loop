@@ -30,6 +30,14 @@ export function makeReproduceStage(deps: ReproduceDeps): Stage {
 	return {
 		name: "Reproduce",
 		run: async (ctx) => {
+			// A review-feedback pass brings the first run's red test with it.
+			if (ctx.artifacts.reproduction?.status === "reproduced") {
+				return {
+					state: "skipped",
+					detail: "reused from the first run",
+				};
+			}
+
 			const area = ctx.artifacts.intake?.area;
 
 			const runner =

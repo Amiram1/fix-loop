@@ -62,7 +62,7 @@ export interface FixOptions {
 	/** Scratch checkout with the red test already written back in. */
 	context: RunContext;
 	red: { testPath: string; testName: string; evidence?: string };
-	issue: { title: string; body: string };
+	issue: { title: string; body: string; replies?: string[] };
 	/** config.tests.full: the whole suite that must stay green. */
 	fullCommand: string;
 	fixModel: string;

@@ -151,6 +151,52 @@ describe("makeFixStage", () => {
 		expect(create).not.toHaveBeenCalled();
 	});
 
+	it("in revise mode skips the baseline and works from the review text", async () => {
+		// The PR branch already holds the fix, so the red test passes before any change.
+		await writeFile(join(root, "src/value.txt"), "ok\n");
+		await exec(
+			"git",
+			[
+				"-c",
+				"user.name=t",
+				"-c",
+				"user.email=t@t",
+				"commit",
+				"-qam",
+				"fix on the branch",
+			],
+			{ cwd: root },
+		);
+
+		const create = vi
+			.fn<MessagesApi["create"]>()
+			.mockResolvedValueOnce(
+				toolUse("1", "create_file", {
+					path: "src/extra.txt",
+					content: "hi\n",
+				}),
+			)
+			.mockResolvedValueOnce(
+				toolUse("2", "finish_fix", { summary: "added extra" }),
+			);
+
+		const ctx = ctxWith("true", red);
+
+		ctx.artifacts.revise = { reviewText: "please add src/extra.txt" };
+
+		const outcome = await stage({ create }).run(ctx);
+
+		expect(outcome).toMatchObject({ state: "done" });
+		expect(outcome.detail).not.toMatch(/clean checkout/);
+		expect(ctx.artifacts.fix).toMatchObject({
+			status: "fixed",
+			filesChanged: ["src/extra.txt"],
+		});
+		expect(JSON.stringify(create.mock.calls[0])).toContain(
+			"please add src/extra.txt",
+		);
+	});
+
 	it("fixes in a scratch checkout, records the change, and leaves the user's checkout alone", async () => {
 		const create = vi
 			.fn<MessagesApi["create"]>()

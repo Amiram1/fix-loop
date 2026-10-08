@@ -34,6 +34,8 @@ export interface RunArtifacts {
 	fix?: FixResult;
 	gate?: GateResult;
 	delivery?: DeliverResult;
+	/** Set for a review-feedback pass: the fix is already on the PR branch, and this is what the reviewer asked for. */
+	revise?: { reviewText: string };
 }
 
 /** Outcome of the Reproduce stage. A run continues to Fix only when status is "reproduced". */

@@ -120,16 +120,21 @@ export function makeFixStage(deps: FixDeps): Stage {
 					}
 				};
 
+				const revise = ctx.artifacts.revise;
+
 				// The fix only means something if the red test fails before any change is made.
-				let baseline: TestRun;
+				// A review-feedback pass starts from the PR branch, where the test already passes.
+				let baseline: TestRun | undefined;
 
 				try {
-					baseline = await runRedTest(
-						runner,
-						{ file: testPath, name: repro.testName },
-						context,
-						withApp,
-					);
+					baseline = revise
+						? undefined
+						: await runRedTest(
+								runner,
+								{ file: testPath, name: repro.testName },
+								context,
+								withApp,
+							);
 				} catch (err) {
 					if (err instanceof AppStartError) {
 						return {
@@ -141,7 +146,7 @@ export function makeFixStage(deps: FixDeps): Stage {
 					throw err;
 				}
 
-				if (baseline.exitCode === 0) {
+				if (baseline?.exitCode === 0) {
 					return {
 						state: "skipped",
 						detail: "the red test passes on a clean checkout; it no longer shows the bug",
@@ -158,7 +163,15 @@ export function makeFixStage(deps: FixDeps): Stage {
 						testName: repro.testName,
 						evidence: repro.evidence,
 					},
-					issue: ctx.issue,
+					issue: revise
+						? {
+								...ctx.issue,
+								replies: [
+									...(ctx.issue.replies ?? []),
+									`Review feedback on the pull request, which already holds a fix for this bug. Address it: ${revise.reviewText}`,
+								],
+							}
+						: ctx.issue,
 					fullCommand: ctx.config.tests.full,
 					fixModel: ctx.config.models.fix,
 					escalateModel: ctx.config.models.escalate,

@@ -23,6 +23,8 @@ export interface WiringOptions {
 	dryRun: boolean;
 	/** Where journal entries and the ledger are kept between runs. */
 	dataStore?: DataStore;
+	/** The commit the run works on. Defaults to the checkout's HEAD; a review-feedback pass passes the PR branch head. */
+	headSha?: string;
 }
 
 export interface RunWiring {
@@ -46,7 +48,7 @@ export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
 		budget,
 		store: localBriefStore(opts.root),
 		root: opts.root,
-		headSha: await headSha(opts.root),
+		headSha: opts.headSha ?? (await headSha(opts.root)),
 		briefFingerprint: await briefFingerprint(opts.root),
 		listOpenIssues: opts.listOpenIssues,
 		runners: defaultRunners(opts.config),
