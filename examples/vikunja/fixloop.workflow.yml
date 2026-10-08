@@ -1,11 +1,13 @@
 # Workflow for the Vikunja repo. Copy to .github/workflows/fixloop.yml in the target repo.
 #
-# The reproduction stage runs the repo's own tests, so the runner needs the same toolchain CI uses:
-# Go (for backend tests), Node and pnpm (for frontend tests), and Docker (for the app stack),
-# which GitHub-hosted runners already include.
+# FixLoop is private, and GitHub does not let a private repo's action be called from another repo.
+# So this checks FixLoop out with a token and runs its committed bundle (dist/action) directly.
+# Requires a secret FIXLOOP_TOKEN in this repo: a fine-grained personal access token with
+# read-only "Contents" access to Amiram1/fix-loop. Set it with:
+#   gh secret set FIXLOOP_TOKEN --repo Amiram1/vikunja
 #
-# Note: `uses:` below points at the FixLoop Action. It must be a public repo or a repo in the same
-# account for the call to resolve. While FixLoop is private, run this from a copy of the FixLoop repo.
+# The reproduction and fix stages run the repo's own tests, so the runner needs the same toolchain
+# CI uses: Go, Node and pnpm. Docker is included on GitHub-hosted runners.
 name: FixLoop
 
 on:
@@ -49,7 +51,15 @@ jobs:
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
 
-      - uses: Amiram1/fix-loop@main
+      - name: Check out FixLoop
+        uses: actions/checkout@v5
+        with:
+          repository: Amiram1/fix-loop
+          token: ${{ secrets.FIXLOOP_TOKEN }}
+          path: .fixloop
+
+      - name: Run FixLoop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node .fixloop/dist/action/index.js
