@@ -7,6 +7,7 @@ import { stopAllBooted } from "../boot/registry.js";
 import { withDevModels } from "../config/dev.js";
 import { loadConfig } from "../config/load.js";
 import { localDataStore } from "../memory/datastore.js";
+import { notifyAfterRun } from "../notify/slack.js";
 import { withBootedApp } from "../pipeline/boot.js";
 import { guard } from "../pipeline/guard.js";
 import { learnFromRun } from "../pipeline/learn.js";
@@ -221,6 +222,21 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		store,
 	})) {
 		console.log(`fixloop: ${problem}`);
+	}
+
+	// Local check of the Slack message: only when SLACK_WEBHOOK is set, never in a dry run.
+	if (!opts.dryRun) {
+		for (const line of await notifyAfterRun({
+			ctx,
+			config,
+			webhookUrl: process.env.SLACK_WEBHOOK,
+			links: {
+				issue: `https://github.com/${owner}/${repo}/issues/${opts.issue}`,
+			},
+			spentUsd: budget.spentUsd,
+		})) {
+			console.log(`fixloop: ${line}`);
+		}
 	}
 
 	console.log(`fixloop: model spend this run $${budget.spentUsd.toFixed(4)}`);

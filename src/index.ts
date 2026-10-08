@@ -7,6 +7,7 @@ import { loadConfig } from "./config/load.js";
 import type { FixLoopConfig } from "./config/schema.js";
 import { githubDataStore } from "./data/github.js";
 import { recordPullRequestOutcome } from "./metrics/outcome.js";
+import { notifyAfterRun } from "./notify/slack.js";
 import { withBootedApp } from "./pipeline/boot.js";
 import { guard } from "./pipeline/guard.js";
 import { learnFromRun } from "./pipeline/learn.js";
@@ -141,6 +142,19 @@ export async function main(env = process.env): Promise<void> {
 		store,
 	})) {
 		console.log(`fixloop: ${problem}`);
+	}
+
+	// Optional: the Action passes the webhook as its `slack-webhook` input; SLACK_WEBHOOK is for local use.
+	for (const line of await notifyAfterRun({
+		ctx,
+		config,
+		webhookUrl: env["INPUT_SLACK-WEBHOOK"] || env.SLACK_WEBHOOK,
+		links: {
+			issue: `${env.GITHUB_SERVER_URL ?? "https://github.com"}/${owner}/${repo}/issues/${command.issue}`,
+		},
+		spentUsd: budget.spentUsd,
+	})) {
+		console.log(`fixloop: ${line}`);
 	}
 
 	console.log(
