@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { Octokit } from "@octokit/rest";
 import { fetchIssue } from "./adapters/github.js";
 import { loadConfig } from "./config/load.js";
+import type { FixLoopConfig } from "./config/schema.js";
 import { guard } from "./pipeline/guard.js";
 import { type RunContext, runPipeline } from "./pipeline/run.js";
 import { DEFAULT_STAGES } from "./pipeline/stages.js";
@@ -50,19 +51,30 @@ export async function main(env = process.env): Promise<void> {
 		return;
 	}
 
-	const ctx: RunContext = {
-		runId: env.GITHUB_RUN_ID ?? "local",
-		config: await loadConfig(),
-		issue,
-		dryRun: false,
-	};
+	const reporter = githubReporter(octokit, ref);
+	const runId = env.GITHUB_RUN_ID ?? "local";
+	let config: FixLoopConfig;
+	try {
+		config = await loadConfig();
+	} catch (err) {
+		// Without config there is nothing to run; say so on the issue instead of failing silently.
+		await reporter.publish({
+			runId,
+			headline: "not started",
+			stages: [
+				{
+					name: "Config",
+					state: "failed",
+					detail: (err as Error).message,
+				},
+			],
+		});
+		process.exitCode = 1;
+		return;
+	}
 
-	const result = await runPipeline(
-		ctx,
-		DEFAULT_STAGES,
-		githubReporter(octokit, ref),
-	);
-
+	const ctx: RunContext = { runId, config, issue, dryRun: false };
+	const result = await runPipeline(ctx, DEFAULT_STAGES, reporter);
 	if (!result.ok) process.exitCode = 1;
 }
 
