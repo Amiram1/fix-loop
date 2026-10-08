@@ -5,8 +5,11 @@ import { hasLabels, upsertStatusComment } from "./adapters/github.js";
 import { guard } from "./pipeline/guard.js";
 import { route } from "./router.js";
 import { renderStatus } from "./ui/statusComment.js";
+import { VERSION } from "./version.js";
 
 export async function main(env = process.env): Promise<void> {
+	console.log(`fixloop ${VERSION} on node ${process.version}`);
+
 	const eventPath = env.GITHUB_EVENT_PATH;
 
 	const [owner, repo] = (env.GITHUB_REPOSITORY ?? "").split("/");
