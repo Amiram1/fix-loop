@@ -52,8 +52,11 @@ export async function main(env = process.env): Promise<void> {
 	}
 
 	const reporter = githubReporter(octokit, ref);
+
 	const runId = env.GITHUB_RUN_ID ?? "local";
+
 	let config: FixLoopConfig;
+
 	try {
 		config = await loadConfig();
 	} catch (err) {
@@ -74,7 +77,9 @@ export async function main(env = process.env): Promise<void> {
 	}
 
 	const ctx: RunContext = { runId, config, issue, dryRun: false };
+
 	const result = await runPipeline(ctx, DEFAULT_STAGES, reporter);
+
 	if (!result.ok) process.exitCode = 1;
 }
 

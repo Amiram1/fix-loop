@@ -33,18 +33,23 @@ const FLAGS = {
 	stage: { type: "string" },
 } as const;
 
-export function parseRunArgs(argv: string[]): RunOptions {
-	let values;
+function parseFlags(argv: string[]) {
 	try {
-		({ values } = parseArgs({ args: argv, options: FLAGS, strict: true }));
+		return parseArgs({ args: argv, options: FLAGS, strict: true }).values;
 	} catch (err) {
 		throw new UsageError((err as Error).message);
 	}
+}
+
+export function parseRunArgs(argv: string[]): RunOptions {
+	const values = parseFlags(argv);
 
 	const issue = Number(values.issue);
+
 	if (!values.issue || !Number.isInteger(issue) || issue <= 0) {
 		throw new UsageError("--issue must be a positive integer");
 	}
+
 	if (values.repo && !/^[^/\s]+\/[^/\s]+$/.test(values.repo)) {
 		throw new UsageError("--repo must be owner/name");
 	}

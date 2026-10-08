@@ -36,6 +36,7 @@ describe("parseRunArgs", () => {
 			"--stage",
 			"Fix",
 		]);
+
 		expect(opts).toMatchObject({
 			issue: 3,
 			repo: "acme/app",

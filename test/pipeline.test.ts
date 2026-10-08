@@ -26,6 +26,7 @@ const ctx: RunContext = {
 
 function recorder() {
 	const views: StatusView[] = [];
+
 	return {
 		views,
 		reporter: {
@@ -43,6 +44,7 @@ const ok = (name: string): Stage => ({
 describe("runPipeline", () => {
 	it("runs stages in order and reports the final state", async () => {
 		const { views, reporter } = recorder();
+
 		const result = await runPipeline(ctx, [ok("A"), ok("B")], reporter);
 
 		expect(result).toEqual({ ok: true });
@@ -55,12 +57,14 @@ describe("runPipeline", () => {
 
 	it("stops at the first throwing stage and marks the rest pending", async () => {
 		const { views, reporter } = recorder();
+
 		const boom: Stage = {
 			name: "B",
 			run: async () => {
 				throw new Error("kaboom");
 			},
 		};
+
 		const result = await runPipeline(
 			ctx,
 			[ok("A"), boom, ok("C")],
@@ -68,7 +72,9 @@ describe("runPipeline", () => {
 		);
 
 		expect(result).toEqual({ ok: false, failedStage: "B" });
+
 		const last = views.at(-1);
+
 		expect(last?.headline).toBe("failed at B");
 		expect(last?.stages.map((s) => s.state)).toEqual([
 			"done",
@@ -80,7 +86,9 @@ describe("runPipeline", () => {
 
 	it("runs only the selected stage and marks the others not selected", async () => {
 		const { views, reporter } = recorder();
+
 		let ran = 0;
+
 		const counted = (name: string): Stage => ({
 			name,
 			run: async () => {
@@ -88,6 +96,7 @@ describe("runPipeline", () => {
 				return { state: "done" };
 			},
 		});
+
 		await runPipeline(ctx, [counted("A"), counted("B")], reporter, "B");
 
 		expect(ran).toBe(1);
@@ -99,6 +108,7 @@ describe("runPipeline", () => {
 
 	it("rejects an unknown stage name", async () => {
 		const { reporter } = recorder();
+
 		await expect(
 			runPipeline(ctx, [ok("A")], reporter, "Nope"),
 		).rejects.toThrow(/Known stages: A/);
@@ -106,6 +116,7 @@ describe("runPipeline", () => {
 
 	it("placeholder stages report as skipped, so an empty run is visibly not real work", async () => {
 		const { views, reporter } = recorder();
+
 		await runPipeline(ctx, DEFAULT_STAGES, reporter);
 
 		expect(views.at(-1)?.stages.every((s) => s.state === "skipped")).toBe(
@@ -117,6 +128,7 @@ describe("runPipeline", () => {
 describe("withDevModels", () => {
 	it("forces every model to Haiku without touching other config", () => {
 		const dev = withDevModels(config);
+
 		expect(dev.models).toEqual({
 			triage: "claude-haiku-5-5",
 			fix: "claude-haiku-5-5",

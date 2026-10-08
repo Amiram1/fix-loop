@@ -1,4 +1,5 @@
 import { VERSION } from "../version.js";
+import { pingCommand } from "./ping.js";
 import { parseRunArgs, runCommand, UsageError } from "./run.js";
 
 const USAGE = `fixloop ${VERSION}
@@ -14,6 +15,8 @@ Options:
   --dev           force every stage onto Haiku
   --dry-run       print status updates instead of writing to GitHub
   --stage <name>  run only this stage; the others are marked not selected
+
+  fixloop ping [--model <id>]   one low-effort call to check the key and its cost (default: claude-haiku-5-5)
 `;
 
 /** Dispatches the CLI. Returns the process exit code: 0 ok, 1 run failed, 2 usage error. */
@@ -32,6 +35,8 @@ export async function main(argv: string[]): Promise<number> {
 		}
 
 		if (command === "run") return await runCommand(parseRunArgs(rest));
+
+		if (command === "ping") return await pingCommand(rest);
 
 		throw new UsageError(`unknown command "${command}"`);
 	} catch (err) {
