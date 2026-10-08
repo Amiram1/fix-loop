@@ -43,6 +43,12 @@ jobs:
         with:
           package_json_file: frontend/package.json
 
+      # Chromium needs system libraries on a fresh Linux runner. Installing them here keeps the
+      # reproduction step from failing on launch. The runner repeats the browser install itself.
+      - name: Install Playwright browser and system libraries
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
       - uses: Amiram1/fix-loop@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
