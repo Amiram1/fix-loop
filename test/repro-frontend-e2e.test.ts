@@ -489,3 +489,14 @@ describe("frontendRunner with tests.e2e", () => {
 		}
 	});
 });
+
+describe("frontendRunner needsApp", () => {
+	it("is true only for Playwright specs, which drive the running app", () => {
+		const runner = frontendRunner(both);
+
+		expect(runner?.needsApp?.(SPEC)).toBe(true);
+		expect(
+			runner?.needsApp?.("frontend/src/helpers/getHumanSize.test.ts"),
+		).toBe(false);
+	});
+});

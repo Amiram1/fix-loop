@@ -69,7 +69,7 @@ describe("backend reproduction against Vikunja", () => {
 					expect(result.evidence).toMatch(/--- FAIL:/);
 				}
 			} finally {
-				await removeScratchCheckout(vikunja, checkout);
+				await removeScratchCheckout(checkout);
 			}
 		},
 		20 * 60 * 1000,

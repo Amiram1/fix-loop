@@ -299,6 +299,7 @@ export function frontendRunner(
 			e2eFor(test.file)
 				? classifyE2e(run, test)
 				: classifyFrontend(run, test),
+		needsApp: (file) => e2eFor(file) !== undefined,
 	};
 }
 

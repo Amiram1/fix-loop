@@ -1,7 +1,8 @@
 # Example FixLoop config for the local Vikunja demo copy (branch main).
 # The demo repo is not published yet; it will be uploaded later.
 app:
-  up: docker compose -f docker-compose.fixloop.yml up -d --wait
+  # --build: the Fix stage boots the app from a checkout with a new change, so the image must be rebuilt.
+  up: docker compose -f docker-compose.fixloop.yml up -d --build --wait
   down: docker compose -f docker-compose.fixloop.yml down -v
   base_url: http://localhost:3456
   seed: ./scripts/fixloop-seed.sh

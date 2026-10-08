@@ -197,7 +197,7 @@ describe("makeFixStage", () => {
 		const outcome = await stage({ create }).run(ctx);
 
 		expect(outcome).toMatchObject({ state: "halt" });
-		expect(outcome.detail).toMatch(/^not fixed: /);
+		expect(outcome.detail).toMatch(/^not fixed \(/);
 		expect(ctx.artifacts.fix?.status).toBe("not_fixed");
 	});
 });
@@ -241,5 +241,123 @@ describe("collectDiff", () => {
 		expect(diff).toContain("+two");
 		expect(diff).toContain("+fresh");
 		expect(diff).not.toContain("red");
+	});
+});
+
+describe("makeFixStage with a UI target", () => {
+	let root: string;
+
+	beforeEach(async () => {
+		root = await mkdtemp(join(tmpdir(), "fixloop-fix-ui-"));
+		await exec("git", ["init", "-q"], { cwd: root });
+		await mkdir(join(root, "src"), { recursive: true });
+		await writeFile(join(root, "src/value.txt"), "bad\n");
+		await exec("git", ["add", "."], { cwd: root });
+		await exec(
+			"git",
+			[
+				"-c",
+				"user.name=t",
+				"-c",
+				"user.email=t@t",
+				"commit",
+				"-qm",
+				"init",
+			],
+			{ cwd: root },
+		);
+	});
+
+	afterEach(async () => {
+		await rm(root, { recursive: true, force: true });
+	});
+
+	it("stops the running app, boots one from the checkout, and tests the change against it", async () => {
+		const order: string[] = [];
+
+		const uiRunner: AreaRunner = {
+			area: "frontend",
+			testGlobs: ["tests/*.spec"],
+			hints: "",
+			needsApp: () => true,
+			runTest: vi.fn(async (_t, ctx): Promise<TestRun> => {
+				const value = await readFile(
+					join(ctx.checkout, "src/value.txt"),
+					"utf8",
+				);
+
+				order.push(`test sees ${ctx.env.FIXLOOP_BASE_URL}`);
+				return value === "ok\n" &&
+					ctx.env.FIXLOOP_BASE_URL === "http://scratch"
+					? { exitCode: 0, output: "PASS" }
+					: { exitCode: 1, output: "FAIL" };
+			}),
+			classify: () => ({ red: true, reason: "x" }),
+		};
+
+		const bootFake = vi.fn(async (opts: { cwd: string }) => {
+			order.push(`boot ${opts.cwd === root ? "root" : "scratch"}`);
+			return {
+				baseUrl: "http://scratch",
+				collectLogs: async () => "",
+				stop: async () => {
+					order.push("stop scratch");
+				},
+			};
+		});
+
+		const create = vi
+			.fn<MessagesApi["create"]>()
+			.mockResolvedValueOnce(
+				toolUse("1", "edit_file", {
+					path: "src/value.txt",
+					old_string: "bad\n",
+					new_string: "ok\n",
+				}),
+			)
+			.mockResolvedValueOnce(
+				toolUse("2", "finish_fix", { summary: "fixed" }),
+			);
+
+		const rootApp = {
+			baseUrl: "http://localhost:3456",
+			collectLogs: async () => "",
+			stop: vi.fn(async () => {
+				order.push("stop root");
+			}),
+		};
+
+		const ctx: RunContext = {
+			runId: "t",
+			config: config("true"),
+			issue: { number: 7, title: "size", body: "2 KB shows as 2.05" },
+			dryRun: true,
+			artifacts: {
+				reproduction: {
+					...red,
+					area: "frontend",
+					testPath: "tests/repro.spec",
+				},
+				app: rootApp,
+			},
+		};
+
+		const outcome = await makeFixStage({
+			client: { create },
+			budget: new BudgetTracker(5),
+			root,
+			headSha: "HEAD",
+			runners: { frontend: uiRunner },
+			boot: bootFake as never,
+		}).run(ctx);
+
+		expect(outcome).toMatchObject({ state: "done" });
+		expect(order[0]).toBe("stop root");
+		expect(order).toContain("boot scratch");
+		expect(order).not.toContain("boot root");
+		expect(
+			order.filter((o) => o === "stop scratch").length,
+		).toBeGreaterThanOrEqual(2);
+		expect(ctx.artifacts.fix?.status).toBe("fixed");
 	});
 });

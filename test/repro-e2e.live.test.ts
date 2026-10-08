@@ -84,7 +84,7 @@ describe("e2e reproduction, live", () => {
 						).red,
 					).toBe(true);
 				} finally {
-					await removeScratchCheckout(repo, ctx.checkout);
+					await removeScratchCheckout(ctx.checkout);
 				}
 			} finally {
 				await app.stop();

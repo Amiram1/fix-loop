@@ -12,7 +12,6 @@ import { createRepoTools } from "../memory/tools.js";
 import type { FixResult } from "../pipeline/artifacts.js";
 import {
 	type AreaRunner,
-	isSafeName,
 	type RunContext,
 	safeRelativePath,
 	type TestRun,
@@ -27,6 +26,33 @@ const MAX_EDIT_BYTES = 200 * 1024;
 
 /** After this many rejected finishes, the run escalates to the escalation model. */
 export const ESCALATE_AFTER = 2;
+
+/**
+ * Runs `fn` with the env of an app booted from the checkout under test. Only the boot itself may
+ * throw AppStartError; anything thrown by `fn` is a test problem and propagates unchanged.
+ */
+export type WithApp = <T>(
+	fn: (env: Record<string, string>) => Promise<T>,
+) => Promise<T>;
+
+/** The app for a UI test could not be started from the checkout, so the change cannot be judged. */
+export class AppStartError extends Error {
+	override name = "AppStartError";
+}
+
+/** Runs the target test. A test that drives the app runs inside withApp, against the app built from the checkout. */
+export function runRedTest(
+	runner: AreaRunner,
+	target: { file: string; name: string },
+	ctx: RunContext,
+	withApp: WithApp,
+): Promise<TestRun> {
+	if (!runner.needsApp?.(target.file)) return runner.runTest(target, ctx);
+
+	return withApp((appEnv) =>
+		runner.runTest(target, { ...ctx, env: { ...ctx.env, ...appEnv } }),
+	);
+}
 
 export interface FixOptions {
 	client: MessagesApi;
@@ -48,6 +74,8 @@ export interface FixOptions {
 		checkout: string,
 		env: Record<string, string>,
 	) => Promise<TestRun>;
+	/** Boots the app from the checkout for UI targets. Defaults to running the test with no app. */
+	withApp?: WithApp;
 }
 
 /**
@@ -86,9 +114,25 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 
 	const models: string[] = [];
 
+	const withApp: WithApp = opts.withApp ?? ((fn) => fn({}));
+
+	/** The target test, with a failed app start reported as a test failure the agent can act on. */
+	const runTarget = async (): Promise<TestRun> => {
+		try {
+			return await runRedTest(runner, target, context, withApp);
+		} catch (err) {
+			if (!(err instanceof AppStartError)) throw err;
+
+			return {
+				exitCode: 1,
+				output: `the app could not be started from your change: ${err.message}`,
+			};
+		}
+	};
+
 	/** Null when the fix is accepted; otherwise the reason it is not. */
 	const check = async (): Promise<string | undefined> => {
-		const run = await runner.runTest(target, context);
+		const run = await runTarget();
 
 		if (run.exitCode !== 0) {
 			return `the target test still fails:\n${tail(run.output, 3000)}`;
@@ -217,7 +261,7 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 			input_schema: { type: "object", properties: {} },
 		},
 		run: async () => {
-			const run = await runner.runTest(target, context);
+			const run = await runTarget();
 
 			return run.exitCode === 0
 				? "PASS"
@@ -332,7 +376,7 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 		costUsd,
 		reason:
 			reason ??
-			`no accepted fix after ${attempts} attempt(s): ${firstLine(lastFailure)}`,
+			`no accepted fix after ${attempts} attempt(s): ${lastFailure}`,
 	};
 }
 
@@ -371,10 +415,6 @@ function continuationPrompt(diff: string, lastFailure: string): string {
 		`Changes so far:\n${tail(diff, 6000) || "(none)"}`,
 		`Last failure:\n${tail(lastFailure, 3000)}`,
 	].join("\n\n");
-}
-
-function firstLine(text: string): string {
-	return text.split("\n")[0] ?? text;
 }
 
 function field(input: unknown, key: string): string {

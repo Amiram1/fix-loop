@@ -29,6 +29,11 @@ export interface AreaRunner {
 	hints: string;
 	/** One-time setup in the scratch checkout, such as installing dependencies. */
 	prepare?: (ctx: RunContext) => Promise<void>;
+	/**
+	 * True when this test drives the running app. Such a test must run against an app built from
+	 * the checkout under test, or a fix made in the checkout can never make it pass.
+	 */
+	needsApp?: (file: string) => boolean;
 	/** Runs one test. `file` and `name` have already passed the loop's validation. */
 	runTest: (
 		test: { file: string; name: string },

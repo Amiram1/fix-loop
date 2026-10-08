@@ -79,7 +79,7 @@ export function makeReproduceStage(deps: ReproduceDeps): Stage {
 					detail: `not reproduced: ${reproduction.reason}`,
 				};
 			} finally {
-				await removeScratchCheckout(deps.root, checkout);
+				await removeScratchCheckout(checkout);
 			}
 		},
 	};

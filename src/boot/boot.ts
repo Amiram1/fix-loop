@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import type { FixLoopConfig } from "../config/schema.js";
 import type { BootedApp } from "../pipeline/artifacts.js";
 import { type Exec, type ExecResult, run } from "./exec.js";
+import { trackBooted } from "./registry.js";
 
 type LogSource = FixLoopConfig["logs"][number];
 
@@ -154,6 +155,9 @@ export async function bootApp(opts: BootOptions): Promise<BootedApp> {
 		return stopping;
 	};
 
+	// Tracked from before `up`, so a signal during a slow build still tears the stack down.
+	const untrack = trackBooted({ stop });
+
 	const probe = async (): Promise<{ ok: boolean; note: string }> => {
 		try {
 			const res = await doFetch(app.base_url, {
@@ -207,7 +211,7 @@ export async function bootApp(opts: BootOptions): Promise<BootedApp> {
 			if (seeded.code !== 0) throw failure("app.seed", seeded);
 		}
 	} catch (err) {
-		await stop().catch(() => undefined);
+		await stop().then(untrack, () => undefined);
 		throw err;
 	}
 
@@ -293,6 +297,7 @@ export async function bootApp(opts: BootOptions): Promise<BootedApp> {
 
 			return parts.join("\n\n");
 		},
-		stop,
+		// Unregisters only after a successful `down`, so a failed one can still be retried by a signal.
+		stop: () => stop().then(untrack),
 	};
 }

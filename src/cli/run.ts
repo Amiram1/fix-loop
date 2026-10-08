@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import { Octokit } from "@octokit/rest";
 import { fetchIssue, listOpenIssues } from "../adapters/github.js";
-import { run as execShell } from "../boot/exec.js";
+import { stopAllBooted } from "../boot/registry.js";
 import { withDevModels } from "../config/dev.js";
 import { loadConfig } from "../config/load.js";
 import { withBootedApp } from "../pipeline/boot.js";
@@ -160,14 +160,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 	// Ctrl-C or a kill must not leave the app running. If the signal lands during Boot, the app is
 	// not recorded yet, so `down` runs directly; it is safe when nothing is up.
 	const onSignal = (signal: NodeJS.Signals) => {
-		const stopped = ctx.artifacts.app
-			? ctx.artifacts.app.stop()
-			: config.app.down
-				? execShell(config.app.down, { cwd: root, timeoutMs: 120_000 })
-				: Promise.resolve();
-
-		void stopped
-			.catch(() => undefined)
+		void stopAllBooted()
 			.then(() => removeAllScratchCheckouts())
 			.catch(() => undefined)
 			.finally(() => {
@@ -189,6 +182,13 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		if (opts.dryRun && ctx.artifacts.fix?.diff) {
 			console.log(
 				`\n--- proposed change (${ctx.artifacts.fix.status}) ---\n${ctx.artifacts.fix.diff}`,
+			);
+		}
+
+		// The status line keeps only the first line of a rejection, so print the whole reason here.
+		if (opts.dryRun && ctx.artifacts.fix?.status === "not_fixed") {
+			console.log(
+				`\n--- why not fixed ---\n${ctx.artifacts.fix.reason ?? "(no reason)"}`,
 			);
 		}
 	} finally {

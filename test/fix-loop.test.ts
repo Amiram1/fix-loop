@@ -7,7 +7,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetExceeded, BudgetTracker } from "../src/agent/budget.js";
 import type { MessagesApi } from "../src/agent/client.js";
-import { fixBug } from "../src/fix/loop.js";
+import { AppStartError, fixBug } from "../src/fix/loop.js";
 import type { AreaRunner, RunContext, TestRun } from "../src/repro/runner.js";
 
 const exec = promisify(execFile);
@@ -258,5 +258,70 @@ describe("fixBug", () => {
 		await expect(
 			fixBug(base(client, fakeRunner(), { budget })),
 		).rejects.toBeInstanceOf(BudgetExceeded);
+	});
+
+	it("runs a UI target against the app from the checkout, and a failed app start is a rejected finish", async () => {
+		const uiRunner: AreaRunner = {
+			...fakeRunner(),
+			needsApp: () => true,
+			runTest: vi.fn(async (_t, ctx: RunContext): Promise<TestRun> => {
+				const value = await readFile(
+					join(ctx.checkout, "src/value.txt"),
+					"utf8",
+				);
+
+				return value === FIXED &&
+					ctx.env.FIXLOOP_BASE_URL === "http://scratch"
+					? { exitCode: 0, output: "PASS" }
+					: { exitCode: 1, output: "FAIL" };
+			}),
+		};
+
+		const withApp = vi.fn(
+			async (fn: (env: Record<string, string>) => Promise<unknown>) =>
+				fn({ FIXLOOP_BASE_URL: "http://scratch" }),
+		);
+
+		const { client } = scripted([
+			toolUse("1", "edit_file", {
+				path: "src/value.txt",
+				old_string: "bad\n",
+				new_string: "ok\n",
+			}),
+			toolUse("2", "finish_fix", { summary: "fixed" }),
+		]);
+
+		const result = await fixBug(
+			base(client, uiRunner, { withApp: withApp as never }),
+		);
+
+		expect(result.status).toBe("fixed");
+		expect(withApp).toHaveBeenCalled();
+	});
+
+	it("reports an app that will not start as a failed check the agent can act on, not a crash", async () => {
+		const uiRunner: AreaRunner = { ...fakeRunner(), needsApp: () => true };
+
+		const withApp = async () => {
+			throw new AppStartError("docker build failed");
+		};
+
+		const { create, client } = scripted([
+			toolUse("1", "finish_fix", { summary: "done" }),
+			endTurn("gave up"),
+			endTurn("gave up"),
+		]);
+
+		const result = await fixBug(base(client, uiRunner, { withApp }));
+
+		expect(result.status).toBe("not_fixed");
+
+		const toolResult = create.mock.calls[1]?.[0].messages.at(-1) as {
+			content: Array<{ content: string; is_error?: boolean }>;
+		};
+
+		expect(toolResult.content[0]?.content).toMatch(
+			/app could not be started from your change: docker build failed/,
+		);
 	});
 });
