@@ -121,3 +121,26 @@ describe("deliver stage", () => {
 		});
 	});
 });
+
+describe("unknown area and the reporter", () => {
+	it("asks the reporter about the area when the area is unknown and nothing was reproduced", async () => {
+		const ctx = ctxWith({
+			intake: {
+				area: "unknown",
+				severity: "S3",
+				summary: "s",
+				injectionSuspected: false,
+			},
+		});
+
+		const outcome = await makeNotifyStage({ dryRun: true }).run(ctx);
+
+		expect(outcome.state).toBe("done");
+		expect(ctx.artifacts.delivery?.detail).toContain(
+			"needs more information",
+		);
+		expect(ctx.artifacts.delivery?.detail).toMatch(
+			/UI|API|screen|endpoint/i,
+		);
+	});
+});

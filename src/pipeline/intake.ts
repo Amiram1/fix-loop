@@ -112,6 +112,7 @@ export function makeIntakeStage(deps: IntakeDeps): Stage {
 			const { text: issueBlock, injectionSuspected } = sanitizeIssueText(
 				issue.title,
 				issue.body,
+				issue.replies,
 			);
 
 			// The issue cannot be a duplicate of itself, and the list usually contains it.

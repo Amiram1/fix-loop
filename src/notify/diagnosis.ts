@@ -32,6 +32,24 @@ const NOISE = /^(=== (RUN|PAUSE|CONT)|exit status|FAIL\s|ok\s|PASS$)/;
 const clip = (line: string) =>
 	line.length > 200 ? `${line.slice(0, 200)}…` : line;
 
+/** A line that says what failed: the failing test, an assertion, the values, or a source location. */
+const SIGNAL =
+	/--- FAIL|Error|expected|actual|got |want|received|assert|panic|\.go:\d+|\.ts:\d+/i;
+
+/**
+ * The lines that explain the failure. The first lines of a log are often setup, so the lines that
+ * name a failure or a value come first. The first lines are used only when none of them match.
+ */
+function hypothesisLines(lines: string[]): string[] {
+	const usable = lines.filter((l) => !NOISE.test(l.trim()));
+
+	const signal = usable.filter((l) => SIGNAL.test(l));
+
+	return (signal.length > 0 ? signal : usable)
+		.slice(0, MAX_HYPOTHESIS_LINES)
+		.map(clip);
+}
+
 export function renderDiagnosis({
 	reproduction,
 	fix,
@@ -42,10 +60,7 @@ export function renderDiagnosis({
 		.map((l) => l.trimEnd())
 		.filter((l) => l.trim());
 
-	const hypothesis = lines
-		.filter((l) => !NOISE.test(l.trim()))
-		.slice(0, MAX_HYPOTHESIS_LINES)
-		.map(clip);
+	const hypothesis = hypothesisLines(lines);
 
 	const test = reproduction.testName
 		? `The failing test ${inline(reproduction.testName)}${reproduction.testPath ? ` in ${inline(reproduction.testPath)}` : ""} fails with:`

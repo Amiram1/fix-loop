@@ -14,6 +14,9 @@ concurrency:
 
 jobs:
   fixloop:
+    # This repo is public, and its ANTHROPIC_API_KEY is for testing only. Only maintainers may start
+    # a run: an issue opened by anyone else is skipped before the key is reachable by the job.
+    if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

@@ -26,9 +26,16 @@ export function makeNotifyStage(deps: NotifyDeps): Stage {
 		run: async (ctx) => {
 			const repro = ctx.artifacts.reproduction;
 
-			if (repro?.status === "not_reproduced") {
+			// An unknown area never reached Reproduce, so the question is about the area itself.
+			const unknownArea =
+				!repro && ctx.artifacts.intake?.area === "unknown";
+
+			if (repro?.status === "not_reproduced" || unknownArea) {
 				const input = {
-					reason: repro.reason ?? "",
+					reason:
+						repro?.status === "not_reproduced"
+							? (repro.reason ?? "")
+							: 'no runner for area "unknown"',
 					title: ctx.issue.title,
 				};
 

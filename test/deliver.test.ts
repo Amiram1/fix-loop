@@ -95,6 +95,25 @@ function ctxWith(artifacts: Partial<RunContext["artifacts"]> = {}): RunContext {
 	};
 }
 
+const deliverFixWithDiff = (
+	diff: string,
+	fake: ReturnType<typeof fakeOctokit> | undefined,
+) => {
+	const ctx = ctxWith();
+
+	if (ctx.artifacts.fix) ctx.artifacts.fix = { ...ctx.artifacts.fix, diff };
+
+	return deliverFix({
+		root: repo.root,
+		headSha: repo.sha,
+		ctx,
+		gate: gateOf("ready_pr"),
+		octokit: fake?.octokit,
+		dryRun: false,
+		ref,
+	});
+};
+
 const deliver = (
 	delivery: GateResult["delivery"],
 	fake: ReturnType<typeof fakeOctokit> | undefined,
@@ -509,5 +528,36 @@ describe("labels", () => {
 				"fixloop",
 			]),
 		).toEqual([]);
+	});
+
+	it("refuses to overwrite an existing branch that holds a human commit, and writes nothing", async () => {
+		const fake = fakeOctokit({
+			issueAuthor: "reporter",
+			branches: ["fixloop/issue-5"],
+			branchAuthors: ["a human"],
+		});
+
+		const result = await deliver("ready_pr", fake);
+
+		expect(result.status).toBe("skipped");
+		expect(result.detail).toMatch(
+			/not made by FixLoop, so it is not overwritten/,
+		);
+		expect(fake.called("pulls.create")).toHaveLength(0);
+		expect(fake.called("git.updateRef")).toHaveLength(0);
+		expect(fake.called("issues.createLabel")).toHaveLength(0);
+	});
+
+	it("refuses a change with a binary file, before anything is written", async () => {
+		const fake = fakeOctokit({ issueAuthor: "reporter" });
+
+		const result = await deliverFixWithDiff(
+			"diff --git a/x.png b/x.png\nBinary files a/x.png and b/x.png differ\n",
+			fake,
+		);
+
+		expect(result.status).toBe("skipped");
+		expect(result.detail).toMatch(/binary file or a submodule/);
+		expect(fake.called("git.createBlob")).toHaveLength(0);
 	});
 });

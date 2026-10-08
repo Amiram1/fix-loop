@@ -38,9 +38,14 @@ export function makeReproduceStage(deps: ReproduceDeps): Stage {
 					: undefined;
 
 			if (!runner) {
+				// An unknown area is a question for the reporter, so it is skipped and Notify asks it.
+				// A known area without a runner is a configuration gap, which stops the run.
 				return {
-					state: "halt",
-					detail: `no reproduction runner for area "${area ?? "unknown"}"`,
+					state:
+						area === "backend" || area === "frontend"
+							? "halt"
+							: "skipped",
+					detail: `no runner for area "${area ?? "unknown"}"`,
 				};
 			}
 

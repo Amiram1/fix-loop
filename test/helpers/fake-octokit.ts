@@ -20,6 +20,8 @@ export interface FakeOptions {
 	users?: Record<string, string>;
 	/** Logins that are collaborators on the repo. Unset means everyone is. */
 	collaborators?: string[];
+	/** Author names of the commits on an existing branch, beyond the base. For the overwrite check. */
+	branchAuthors?: string[];
 }
 
 /** The calls that change something on GitHub. Every other call is a read. */
@@ -64,6 +66,14 @@ export function fakeOctokit(options: FakeOptions = {}) {
 	}));
 
 	const repos = {
+		compareCommits: rec("repos.compareCommits", () => ({
+			data: {
+				commits: (options.branchAuthors ?? []).map((name, i) => ({
+					sha: `c${i}`,
+					commit: { author: { name } },
+				})),
+			},
+		})),
 		checkCollaborator: rec("repos.checkCollaborator", ({ username }) => {
 			if (
 				options.collaborators &&

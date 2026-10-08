@@ -59,10 +59,18 @@ export function neutralise(raw: string): Sanitized {
 }
 
 /** Returns the issue as one `<untrusted_issue>` block, safe to place in a user message. */
-export function sanitizeIssueText(title: string, body: string): Sanitized {
+export function sanitizeIssueText(
+	title: string,
+	body: string,
+	replies: string[] = [],
+): Sanitized {
 	const t = neutralise(title.replace(/\s+/g, " ").trim());
 
 	const b = neutralise(body.trim());
+
+	// The reporter's answers to a needs-info question come after the body, in order. They are
+	// untrusted in the same way, so they go through the same neutralising.
+	const answered = replies.map((reply) => neutralise(reply.trim()));
 
 	return {
 		text: [
@@ -70,8 +78,19 @@ export function sanitizeIssueText(title: string, body: string): Sanitized {
 			`Title: ${t.text}`,
 			"Body:",
 			b.text || "(empty)",
+			...(answered.length > 0
+				? [
+						"Reporter replies, in order:",
+						...answered.map(
+							(r, i) => `${i + 1}. ${r.text || "(empty)"}`,
+						),
+					]
+				: []),
 			`</${UNTRUSTED_TAG}>`,
 		].join("\n"),
-		injectionSuspected: t.injectionSuspected || b.injectionSuspected,
+		injectionSuspected:
+			t.injectionSuspected ||
+			b.injectionSuspected ||
+			answered.some((r) => r.injectionSuspected),
 	};
 }

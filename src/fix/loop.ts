@@ -407,13 +407,17 @@ function fixSystemPrompt(runner: AreaRunner): string {
 }
 
 export function startPrompt(
-	issue: { title: string; body: string },
+	issue: { title: string; body: string; replies?: string[] },
 	testPath: string,
 	testName: string,
 	evidence: string | undefined,
 	hints?: string,
 ): string {
-	const { text: body } = sanitizeIssueText(issue.title, issue.body);
+	const { text: body } = sanitizeIssueText(
+		issue.title,
+		issue.body,
+		issue.replies,
+	);
 
 	return [
 		`Fix the bug described in this issue. The failing test is ${testName} in ${testPath}.`,

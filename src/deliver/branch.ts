@@ -18,6 +18,11 @@ export interface FileChange {
 	status: "added" | "modified" | "deleted";
 }
 
+export const FIXLOOP_AUTHOR = {
+	name: "FixLoop",
+	email: "fixloop@users.noreply.github.com",
+};
+
 export interface BranchResult {
 	branch: string;
 	files: FileChange[];
@@ -133,6 +138,8 @@ export async function commitFixBranch(
 			message: opts.message,
 			tree: newTree.sha,
 			parents: [parent],
+			author: FIXLOOP_AUTHOR,
+			committer: FIXLOOP_AUTHOR,
 		});
 
 		await moveBranch(octokit, repo, opts.branch, commit.sha);
@@ -205,4 +212,62 @@ async function moveBranch(
 			sha,
 		});
 	}
+}
+
+/** Whether the branch exists on GitHub. */
+async function refExists(
+	octokit: Octokit,
+	repo: RepoRef,
+	branch: string,
+): Promise<boolean> {
+	try {
+		await octokit.git.getRef({ ...repo, ref: `heads/${branch}` });
+		return true;
+	} catch (err) {
+		if ((err as { status?: number }).status === 404) return false;
+
+		throw err;
+	}
+}
+
+/**
+ * Why this change cannot be delivered, or undefined when it can. Reads GitHub but writes nothing.
+ * An existing branch is never overwritten when it holds commits that FixLoop did not make, and a
+ * binary file or submodule cannot be carried by the commit path yet.
+ */
+export async function deliveryRefusal(opts: {
+	diff: string;
+	branch: string;
+	headSha: string;
+	octokit?: Octokit;
+	repo?: RepoRef;
+}): Promise<string | undefined> {
+	if (
+		/^[+-]Subproject commit |^Binary files |^GIT binary patch/m.test(
+			opts.diff,
+		)
+	) {
+		return "the change includes a binary file or a submodule, which a pull request cannot carry yet";
+	}
+
+	if (!opts.octokit || !opts.repo) return undefined;
+
+	if (!(await refExists(opts.octokit, opts.repo, opts.branch)))
+		return undefined;
+
+	const { data } = await opts.octokit.repos.compareCommits({
+		...opts.repo,
+		base: opts.headSha,
+		head: opts.branch,
+	});
+
+	const human = data.commits.filter(
+		(commit) => commit.commit.author?.name !== FIXLOOP_AUTHOR.name,
+	);
+
+	if (human.length > 0) {
+		return `branch ${opts.branch} has ${human.length} commit(s) not made by FixLoop, so it is not overwritten`;
+	}
+
+	return undefined;
 }

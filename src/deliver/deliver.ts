@@ -4,7 +4,7 @@ import { ensureLabels, labelsFor } from "../adapters/labels.js";
 import { upsertPullRequest } from "../adapters/pulls.js";
 import type { DeliverResult, GateResult } from "../pipeline/artifacts.js";
 import type { RunContext } from "../pipeline/run.js";
-import { branchName, commitFixBranch } from "./branch.js";
+import { branchName, commitFixBranch, deliveryRefusal } from "./branch.js";
 import {
 	collaboratorCheck,
 	githubLoginLookup,
@@ -111,6 +111,18 @@ export async function deliverFix(opts: DeliverOptions): Promise<DeliverResult> {
 		octokit && ref && !opts.dryRun
 			? { octokit, repo: { owner: ref.owner, repo: ref.repo } }
 			: undefined;
+
+	// Refused before anything is written, so no labels are created for a PR that will not open.
+	const refusal = await deliveryRefusal({
+		diff: fix.diff,
+		branch,
+		headSha: opts.headSha,
+		octokit,
+		repo: ref ? { owner: ref.owner, repo: ref.repo } : undefined,
+	});
+
+	if (refusal)
+		return { status: "skipped", branch, detail: `no PR: ${refusal}` };
 
 	if (write) await ensureLabels(write.octokit, write.repo, labels);
 

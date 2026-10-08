@@ -3,6 +3,25 @@ import { gateInputFrom } from "../gate/input.js";
 import type { GateResult } from "../pipeline/artifacts.js";
 import type { RunContext } from "../pipeline/run.js";
 
+/**
+ * A model-written sentence as plain Markdown: whitespace collapsed, mentions defused so they do not
+ * ping anyone, and cut at a word boundary with an ellipsis rather than mid-sentence.
+ */
+function plainSentence(text: string, max: number): string {
+	const flat = text
+		.replace(/\s+/g, " ")
+		.replace(/@(?=[\w-])/g, "@\u200b")
+		.trim();
+
+	if (flat.length <= max) return flat;
+
+	const cut = flat.slice(0, max);
+
+	const space = cut.lastIndexOf(" ");
+
+	return `${space > 0 ? cut.slice(0, space) : cut}…`;
+}
+
 const MAX_EVIDENCE_CHARS = 3000;
 
 const MAX_LINE_CHARS = 200;
@@ -64,7 +83,7 @@ export function renderPrBody({
 	const measured = `Changed ${files.length} ${files.length === 1 ? "file" : "files"} (${input.diffLines} changed ${input.diffLines === 1 ? "line" : "lines"}).`;
 
 	const fixLine = fix?.summary
-		? `${inline(fix.summary.slice(0, 300))} ${measured}`
+		? `${plainSentence(fix.summary, 600)} ${measured}`
 		: measured;
 
 	const test =

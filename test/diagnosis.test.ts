@@ -217,3 +217,35 @@ describe("postDiagnosis", () => {
 		expect(state.comments[0]?.body).toBe(`${STATUS_MARKER}\nstopped`);
 	});
 });
+
+describe("hypothesis lines", () => {
+	it("leads with the lines that say what failed, not the setup lines before them", () => {
+		const text = renderDiagnosis({
+			reproduction: {
+				status: "reproduced",
+				area: "backend",
+				testPath: "pkg/x_test.go",
+				testName: "TestReproX",
+				evidence: [
+					"=== RUN TestReproX",
+					"setting up the fixture",
+					"--- FAIL: TestReproX (0.00s)",
+					"    x_test.go:12: expected 3 tasks, got 2",
+				].join("\n"),
+				attempts: 1,
+				costUsd: 0,
+			},
+			gate: undefined,
+		});
+
+		// The raw evidence block below the hypothesis may still show setup lines; the hypothesis must not.
+		const hypothesis =
+			text
+				.split("**Root-cause hypothesis**")[1]
+				?.split("**What FixLoop tried**")[0] ?? "";
+
+		expect(hypothesis).toContain("--- FAIL: TestReproX");
+		expect(hypothesis).toContain("expected 3 tasks, got 2");
+		expect(hypothesis).not.toContain("setting up the fixture");
+	});
+});

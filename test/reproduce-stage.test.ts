@@ -81,7 +81,7 @@ describe("makeReproduceStage", () => {
 
 		const outcome = await stage.run(ctxWith(undefined));
 
-		expect(outcome).toMatchObject({ state: "halt" });
+		expect(outcome).toMatchObject({ state: "skipped" });
 		expect(create).not.toHaveBeenCalled();
 	});
 
