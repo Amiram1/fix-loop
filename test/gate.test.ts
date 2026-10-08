@@ -95,7 +95,7 @@ describe("decision table", () => {
 	});
 
 	it("never ready_pr when risky, even at full confidence", () => {
-		const result = gate({ severity: "S1" });
+		const result = gate({ severity: "S1", issueText: "security hole" });
 
 		expect(result.confidence).toBe(1);
 		expect(result).toMatchObject({ delivery: "draft_pr", risky: true });
@@ -104,6 +104,7 @@ describe("decision table", () => {
 	it("risky and low confidence is still diagnosis_only", () => {
 		const result = gate({
 			severity: "S1",
+			issueText: "security hole",
 			reproduced: false,
 			targetGreen: false,
 			suiteGreen: false,
@@ -185,12 +186,59 @@ describe("risk rules", () => {
 		expect(gate({ filesChanged: [file] }).risky).toBe(false);
 	});
 
-	it("S1 is risky and the other severities are not", () => {
-		expect(gate({ severity: "S1" }).risky).toBe(true);
+	it("a corroborated S1 is risky and the other severities are not", () => {
+		const corroborated = { severity: "S1", issueText: "Login leaks data" };
+
+		expect(gate(corroborated as Partial<GateInput>).risky).toBe(true);
 
 		for (const severity of ["S2", "S3", "S4"] as const) {
-			expect(gate({ severity }).risky).toBe(false);
+			expect(gate({ ...corroborated, severity }).risky).toBe(false);
 		}
+	});
+
+	it("an S1 with no risky path and no keyword is treated as S2: ready, with the reason", () => {
+		for (const issueText of [undefined, "The list is sorted wrongly"]) {
+			const result = gate({ severity: "S1", issueText });
+
+			expect(result).toMatchObject({
+				delivery: "ready_pr",
+				risky: false,
+			});
+			expect(result.reasons).toContain(
+				"Note: severity S1 was not corroborated by a risky path or a security or data keyword, so it is treated as S2.",
+			);
+			expect(result.reasons).not.toContain("The issue is severity S1.");
+		}
+	});
+
+	it.each([
+		"Data loss when saving",
+		"we lost data",
+		"SECURITY problem",
+		"a vulnerability",
+		"Outage since noon",
+		"service was down for hours",
+		"memory leak",
+		"password reset",
+		"credentials shown",
+		"API token expires",
+		"authentication fails",
+		"auth breaks",
+	])("an S1 whose text says %j is draft", (issueText) => {
+		const result = gate({ severity: "S1", issueText });
+
+		expect(result).toMatchObject({ delivery: "draft_pr", risky: true });
+		expect(result.reasons).toContain("The issue is severity S1.");
+	});
+
+	it("an S1 that touches a high-risk path is draft without any keyword", () => {
+		const result = gate({
+			severity: "S1",
+			filesChanged: ["pkg/user/login.go"],
+		});
+
+		expect(result).toMatchObject({ delivery: "draft_pr", risky: true });
+		expect(result.reasons).toContain("The issue is severity S1.");
 	});
 
 	it("a diff over max_diff_lines is risky and costs the size weight; exactly at the limit is not", () => {
@@ -307,6 +355,7 @@ describe("gateInputFrom", () => {
 			diffLines: 2,
 			filesChanged: ["x"],
 			severity: "S3",
+			issueText: "t\nb",
 		});
 	});
 
@@ -328,6 +377,7 @@ describe("gateInputFrom", () => {
 			diffLines: 0,
 			filesChanged: [],
 			severity: "S1",
+			issueText: "t\nb",
 		});
 		expect(gate(input).delivery).toBe("diagnosis_only");
 	});

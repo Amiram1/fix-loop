@@ -24,12 +24,22 @@ type GateConfig = Pick<FixLoopConfig, "autonomy" | "risk">;
 const matchesPath = (file: string, glob: string) =>
 	matchesGlob(file, glob.endsWith("/") ? `${glob}**` : glob);
 
-/** Why a change counts as risky. Empty when it does not. Also used for the PR body. */
-export function riskReasons(
-	input: GateInput,
-	risk: GateConfig["risk"],
-): string[] {
+/** Words that make a model-chosen S1 believable. Substrings, so "vulnerab" covers "vulnerable" and "vulnerability". */
+const S1_KEYWORDS =
+	/data loss|lost data|security|vulnerab|outage|down for|leak|password|credential|token|authentication|auth/i;
+
+const UNCORROBORATED_S1 =
+	"Note: severity S1 was not corroborated by a risky path or a security or data keyword, so it is treated as S2.";
+
+/**
+ * The risk reasons (empty when nothing is risky) and notes that explain a rule that did not apply.
+ * A model can flip S1 and S2 for the same report, so S1 only counts when a changed high-risk path
+ * or a security or data keyword in the issue text backs it up.
+ */
+function assessRisk(input: GateInput, risk: GateConfig["risk"]) {
 	const reasons: string[] = [];
+
+	const notes: string[] = [];
 
 	const hits = input.filesChanged.filter((file) =>
 		risk.high_paths.some((glob) => matchesPath(file, glob)),
@@ -38,7 +48,13 @@ export function riskReasons(
 	if (hits.length > 0)
 		reasons.push(`Touches high-risk paths: ${hits.join(", ")}.`);
 
-	if (input.severity === "S1") reasons.push("The issue is severity S1.");
+	if (input.severity === "S1") {
+		if (hits.length > 0 || S1_KEYWORDS.test(input.issueText ?? "")) {
+			reasons.push("The issue is severity S1.");
+		} else {
+			notes.push(UNCORROBORATED_S1);
+		}
+	}
 
 	if (input.diffLines > risk.max_diff_lines) {
 		reasons.push(
@@ -46,7 +62,15 @@ export function riskReasons(
 		);
 	}
 
-	return reasons;
+	return { reasons, notes };
+}
+
+/** Why a change counts as risky. Empty when it does not. Also used for the PR body. */
+export function riskReasons(
+	input: GateInput,
+	risk: GateConfig["risk"],
+): string[] {
+	return assessRisk(input, risk).reasons;
 }
 
 /** Pure and deterministic: the same signals and config always give the same result. */
@@ -64,7 +88,7 @@ export function evaluateGate(
 
 	const confidence = points / TOTAL_WEIGHT;
 
-	const riskFound = riskReasons(input, risk);
+	const { reasons: riskFound, notes } = assessRisk(input, risk);
 
 	const risky = riskFound.length > 0;
 
@@ -118,6 +142,7 @@ export function evaluateGate(
 					]
 				: []),
 			...riskFound,
+			...notes,
 			decision,
 		],
 	};

@@ -2,6 +2,7 @@ import path from "node:path";
 import { z } from "zod";
 import { inline } from "../notify/text.js";
 import type { RunContext } from "../pipeline/run.js";
+import { neutralise } from "../security/sanitize.js";
 import type { DataStore } from "./datastore.js";
 
 const TITLE_MAX = 200;
@@ -200,13 +201,17 @@ export async function retrieveJournal(
 		.map((hit) => hit.entry);
 }
 
+// Title, root cause and fix summary come from issue text or from a model that read it, so they get
+// the same neutralising as the issue itself. The injection flag is dropped: the hints are only text.
+const safe = (text: string, max: number) => inline(neutralise(text).text, max);
+
 function entryLines(entry: JournalEntry): string {
 	return [
-		`- #${entry.issue} ${inline(entry.title, 120)} (${entry.outcome})`,
-		entry.rootCause && `  Root cause: ${inline(entry.rootCause, 200)}`,
+		`- #${entry.issue} ${safe(entry.title, 120)} (${entry.outcome})`,
+		entry.rootCause && `  Root cause: ${safe(entry.rootCause, 200)}`,
 		entry.files.length > 0 &&
 			`  Files: ${inline(entry.files.join(", "), 200)}`,
-		entry.fixSummary && `  Fix: ${inline(entry.fixSummary, 250)}`,
+		entry.fixSummary && `  Fix: ${safe(entry.fixSummary, 250)}`,
 	]
 		.filter(Boolean)
 		.join("\n");

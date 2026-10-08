@@ -1,5 +1,13 @@
 export class BudgetExceeded extends Error {
 	override name = "BudgetExceeded";
+
+	constructor(
+		message: string,
+		readonly spentUsd = 0,
+		readonly limitUsd = 0,
+	) {
+		super(message);
+	}
 }
 
 /**
@@ -23,6 +31,8 @@ export class BudgetTracker {
 		if (this.spent >= this.limitUsd) {
 			throw new BudgetExceeded(
 				`run budget of $${this.limitUsd.toFixed(2)} reached (spent $${this.spent.toFixed(4)})`,
+				this.spent,
+				this.limitUsd,
 			);
 		}
 	}

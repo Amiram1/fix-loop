@@ -1,3 +1,4 @@
+import { BudgetExceeded } from "../agent/budget.js";
 import type { FixLoopConfig } from "../config/schema.js";
 import type { StageState, StatusView } from "../ui/statusComment.js";
 import type { RunArtifacts } from "./artifacts.js";
@@ -45,7 +46,9 @@ export interface RunResult {
 
 /**
  * Runs stages in order, publishing the status view after every state change.
- * A throwing stage marks itself failed and stops the run. `onlyStage` runs a single stage
+ * A throwing stage marks itself failed and stops the run, except that a stage which hit the run
+ * budget is skipped and recorded on `artifacts.stopped`, so Gate and Notify still run and the
+ * reporter gets a diagnosis instead of a bare failure. `onlyStage` runs a single stage
  * and marks the rest as not selected.
  */
 export async function runPipeline(
@@ -115,6 +118,22 @@ export async function runPipeline(
 				detail: outcome.detail,
 			};
 		} catch (err) {
+			if (err instanceof BudgetExceeded) {
+				// Later model stages throw at once; the first numbers are the ones worth keeping.
+				ctx.artifacts.stopped ??= {
+					reason: "budget",
+					spentUsd: err.spentUsd,
+					limitUsd: err.limitUsd,
+				};
+				rows[i] = {
+					name: stage.name,
+					state: "skipped",
+					detail: "run budget reached",
+				};
+				await publish("running");
+				continue;
+			}
+
 			rows[i] = {
 				name: stage.name,
 				state: "failed",
