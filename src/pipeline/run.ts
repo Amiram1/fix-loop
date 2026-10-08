@@ -39,6 +39,8 @@ export interface RunResult {
 	ok: boolean;
 	failedStage?: string;
 	haltedAt?: string;
+	/** Wall-clock time per stage that ran, in milliseconds. Feeds the run ledger. */
+	stageMs: Record<string, number>;
 }
 
 /**
@@ -57,6 +59,8 @@ export async function runPipeline(
 
 		throw new Error(`unknown stage "${onlyStage}". Known stages: ${known}`);
 	}
+
+	const stageMs: Record<string, number> = {};
 
 	const rows: StatusView["stages"] = stages.map((s) => ({
 		name: s.name,
@@ -82,7 +86,11 @@ export async function runPipeline(
 		await publish("running");
 
 		try {
+			const started = Date.now();
+
 			const outcome = await stage.run(ctx);
+
+			stageMs[stage.name] = Date.now() - started;
 
 			if (outcome.state === "halt") {
 				rows[i] = {
@@ -98,7 +106,7 @@ export async function runPipeline(
 					};
 				}
 				await publish(`stopped at ${stage.name}`);
-				return { ok: true, haltedAt: stage.name };
+				return { ok: true, haltedAt: stage.name, stageMs };
 			}
 
 			rows[i] = {
@@ -113,11 +121,11 @@ export async function runPipeline(
 				detail: (err as Error).message,
 			};
 			await publish(`failed at ${stage.name}`);
-			return { ok: false, failedStage: stage.name };
+			return { ok: false, failedStage: stage.name, stageMs };
 		}
 		await publish("running");
 	}
 
 	await publish("finished");
-	return { ok: true };
+	return { ok: true, stageMs };
 }

@@ -46,7 +46,7 @@ describe("runPipeline", () => {
 
 		const result = await runPipeline(ctx, [ok("A"), ok("B")], reporter);
 
-		expect(result).toEqual({ ok: true });
+		expect(result).toMatchObject({ ok: true });
 		expect(views.at(-1)?.headline).toBe("finished");
 		expect(views.at(-1)?.stages.map((s) => s.state)).toEqual([
 			"done",
@@ -70,7 +70,7 @@ describe("runPipeline", () => {
 			reporter,
 		);
 
-		expect(result).toEqual({ ok: false, failedStage: "B" });
+		expect(result).toMatchObject({ ok: false, failedStage: "B" });
 
 		const last = views.at(-1);
 
@@ -174,7 +174,7 @@ describe("halting", () => {
 			reporter,
 		);
 
-		expect(result).toEqual({ ok: true, haltedAt: "A" });
+		expect(result).toMatchObject({ ok: true, haltedAt: "A" });
 		expect(later).not.toHaveBeenCalled();
 	});
 });

@@ -166,7 +166,7 @@ describe("intake stage", () => {
 			{ publish: async () => {} },
 		);
 
-		expect(result).toEqual({ ok: false, failedStage: "Intake" });
+		expect(result).toMatchObject({ ok: false, failedStage: "Intake" });
 	});
 
 	it("propagates budget exhaustion without calling the model", async () => {
