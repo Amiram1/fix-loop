@@ -1,0 +1,24 @@
+# Example FixLoop config for the Vikunja demo fork (github.com/Amiram1/vikunja, branch fixloop-demo-bugs).
+app:
+  up: docker compose -f docker-compose.fixloop.yml up -d --wait
+  down: docker compose -f docker-compose.fixloop.yml down -v
+  base_url: http://localhost:3456
+  seed: ./scripts/fixloop-seed.sh
+logs:
+  - { type: docker, services: [api] }
+tests:
+  backend:
+    run: go test ./pkg/utils/ -run {{name}}
+    dir: .
+    new_test_glob: "pkg/**/*_test.go"
+  frontend:
+    run: pnpm vitest run {{file}}
+    dir: frontend
+    new_test_glob: "frontend/src/**/*.test.ts"
+  full: go test ./pkg/... && cd frontend && pnpm test:unit --run
+areas:
+  backend: ["pkg/**", "*.go"]
+  frontend: ["frontend/src/**"]
+risk:
+  high_paths: ["pkg/models/auth*", "pkg/user/**", "pkg/migration/**"]
+  max_diff_lines: 150

@@ -1,0 +1,19 @@
+# Minimal Vikunja stack for FixLoop runs (SQLite, built from the repo's Dockerfile).
+# Copied to the Vikunja repo root. Run: docker compose -f docker-compose.fixloop.yml up -d --wait
+services:
+  api:
+    build:
+      context: .                # this file is copied to the root of the Vikunja checkout
+      dockerfile: Dockerfile
+    ports: ["3456:3456"]
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: http://localhost:3456
+      VIKUNJA_SERVICE_JWTSECRET: fixloop-ci-only-secret
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_DATABASE_PATH: /app/vikunja/files/vikunja.db
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "true"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3456/api/v1/info"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
