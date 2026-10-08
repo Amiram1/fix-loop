@@ -73,7 +73,8 @@ describe("generateBrief", () => {
 		expect(create.mock.calls.map(([p]) => p.messages.length)).toEqual([
 			1, 3, 5,
 		]);
-		expect(breakpoints(create.mock.calls[0]?.[0])).toEqual([[0, 0]]);
+		// The first call is a single user prompt: nothing earlier to reuse, so no breakpoint.
+		expect(breakpoints(create.mock.calls[0]?.[0])).toEqual([]);
 		expect(breakpoints(create.mock.calls[1]?.[0])).toEqual([[2, 0]]);
 		expect(breakpoints(create.mock.calls[2]?.[0])).toEqual([[4, 0]]);
 	});

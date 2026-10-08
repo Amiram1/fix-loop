@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
-import type Anthropic from "@anthropic-ai/sdk";
 import type { BudgetTracker } from "../agent/budget.js";
 import {
 	cachedSystem,
@@ -50,48 +49,10 @@ function userPrompt(maxTurns: number): string {
 	return `Write the codebase brief for this repository. You have at most ${maxTurns} turns in total, and the final answer counts as one. Stop exploring after about ${explore} turns and write the brief.`;
 }
 
-/**
- * Puts a cache breakpoint on the last block of the conversation, so each turn pays full price
- * only for the newest tool results instead of re-sending the whole history at the input rate.
- * Without it a 13-turn exploration of a mid-sized repo cost over $0.50. Works on a copy: the
- * loop keeps appending to its own array and at most one message breakpoint may be live.
- */
-function cacheConversation(client: MessagesApi): MessagesApi {
-	return {
-		create: (params) => {
-			const last = params.messages.at(-1);
-
-			if (!last) return client.create(params);
-
-			const blocks: Anthropic.ContentBlockParam[] =
-				typeof last.content === "string"
-					? [{ type: "text", text: last.content }]
-					: [...last.content];
-
-			const tail = blocks.pop();
-
-			if (!tail) return client.create(params);
-
-			blocks.push({
-				...tail,
-				cache_control: { type: "ephemeral" },
-			} as Anthropic.ContentBlockParam);
-
-			return client.create({
-				...params,
-				messages: [
-					...params.messages.slice(0, -1),
-					{ role: last.role, content: blocks },
-				],
-			});
-		},
-	};
-}
-
 /** Runs the exploration loop and returns the brief as `text`, with turns, tokens and cost. */
 export async function generateBrief(opts: BriefOptions): Promise<LoopResult> {
 	const result = await runToolLoop({
-		client: cacheConversation(opts.client),
+		client: opts.client,
 		model: opts.model,
 		system: cachedSystem(BRIEF_SYSTEM_PROMPT),
 		messages: [{ role: "user", content: userPrompt(opts.maxTurns) }],

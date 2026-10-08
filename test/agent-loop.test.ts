@@ -82,7 +82,7 @@ describe("runToolLoop", () => {
 
 		const secondCall = client.create.mock.calls[1]?.[0];
 
-		expect(secondCall?.messages.at(-1)).toEqual({
+		expect(secondCall?.messages.at(-1)).toMatchObject({
 			role: "user",
 			content: [{ type: "tool_result", tool_use_id: "t1", content: "5" }],
 		});
@@ -118,7 +118,7 @@ describe("runToolLoop", () => {
 
 		const sent = client.create.mock.calls[1]?.[0].messages.at(-1);
 
-		expect(sent).toEqual({
+		expect(sent).toMatchObject({
 			role: "user",
 			content: [
 				{
@@ -222,5 +222,47 @@ describe("runToolLoop", () => {
 
 		expect(params?.output_config).toEqual({ effort: "low" });
 		expect(params).not.toHaveProperty("tools");
+	});
+	it("puts a cache breakpoint on the newest history block without mutating the loop's history", async () => {
+		const client = fakeClient([
+			response(
+				[{ type: "tool_use", id: "t1", name: "x", input: {} }],
+				"tool_use",
+			),
+			response([{ type: "text", text: "ok" }], "end_turn"),
+		]);
+
+		const x: ToolHandler = {
+			definition: {
+				name: "x",
+				input_schema: { type: "object", properties: {} },
+			},
+			run: async () => "r",
+		};
+
+		await runToolLoop({
+			...baseOpts,
+			client,
+			budget: new BudgetTracker(1),
+			tools: [x],
+		});
+
+		const second = client.create.mock.calls[1]?.[0].messages;
+
+		const lastBlock = second?.at(-1)?.content;
+
+		if (!Array.isArray(lastBlock))
+			throw new Error("expected block content");
+
+		const tail = lastBlock.at(-1);
+
+		expect(tail).toMatchObject({
+			type: "tool_result",
+			cache_control: { type: "ephemeral" },
+		});
+
+		const first = client.create.mock.calls[0]?.[0].messages;
+
+		expect(first).toEqual([{ role: "user", content: "hi" }]);
 	});
 });

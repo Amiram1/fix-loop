@@ -57,6 +57,38 @@ export function cachedSystem(
 	return blocks;
 }
 
+/**
+ * Copies the history with a cache breakpoint on its last block. Each turn then reads the
+ * earlier turns from cache instead of paying the full input rate for all of them again.
+ * The loop's own array is not touched.
+ */
+function withConversationCache(
+	messages: Anthropic.MessageParam[],
+): Anthropic.MessageParam[] {
+	// The client gets a snapshot, not the loop's array, which keeps growing after the call.
+	// A single-turn prompt has no earlier history to reuse, so it is sent without a breakpoint.
+	if (messages.length < 2) return [...messages];
+
+	const last = messages.at(-1);
+
+	if (!last) return [...messages];
+
+	const blocks: Anthropic.ContentBlockParam[] =
+		typeof last.content === "string"
+			? [{ type: "text", text: last.content }]
+			: [...last.content];
+
+	const tail = blocks.pop();
+
+	if (!tail) return [...messages];
+
+	blocks.push({
+		...tail,
+		cache_control: { type: "ephemeral" },
+	} as Anthropic.ContentBlockParam);
+	return [...messages.slice(0, -1), { role: last.role, content: blocks }];
+}
+
 const emptyUsage = (): Usage => ({
 	input_tokens: 0,
 	output_tokens: 0,
@@ -103,7 +135,7 @@ export async function runToolLoop(opts: LoopOptions): Promise<LoopResult> {
 			model: opts.model,
 			max_tokens: opts.maxTokens ?? 16000,
 			system: opts.system,
-			messages,
+			messages: withConversationCache(messages),
 			...(tools.length > 0
 				? { tools: tools.map((t) => t.definition) }
 				: {}),
