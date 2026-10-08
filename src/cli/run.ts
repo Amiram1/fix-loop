@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import { Octokit } from "@octokit/rest";
 import { fetchIssue, listOpenIssues } from "../adapters/github.js";
+import { run as execShell } from "../boot/exec.js";
 import { withDevModels } from "../config/dev.js";
 import { loadConfig } from "../config/load.js";
 import { withBootedApp } from "../pipeline/boot.js";
@@ -146,16 +147,44 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		? consoleReporter()
 		: githubReporter(octokit, ref);
 
+	const root = resolve(dirname(opts.config));
+
 	const { stages, budget } = await stagesFor({
-		root: resolve(dirname(opts.config)),
+		root,
 		config,
 		apiKey: process.env.ANTHROPIC_API_KEY,
 		listOpenIssues: () => listOpenIssues(octokit, ref, OPEN_ISSUE_LIMIT),
 	});
 
-	const result = await withBootedApp(ctx, () =>
-		runPipeline(ctx, stages, reporter, opts.stage),
-	);
+	// Ctrl-C or a kill must not leave the app running. If the signal lands during Boot, the app is
+	// not recorded yet, so `down` runs directly; it is safe when nothing is up.
+	const onSignal = (signal: NodeJS.Signals) => {
+		const stopped = ctx.artifacts.app
+			? ctx.artifacts.app.stop()
+			: config.app.down
+				? execShell(config.app.down, { cwd: root, timeoutMs: 120_000 })
+				: Promise.resolve();
+
+		void stopped
+			.catch(() => undefined)
+			.finally(() => {
+				process.exit(signal === "SIGINT" ? 130 : 143);
+			});
+	};
+
+	process.once("SIGINT", onSignal);
+	process.once("SIGTERM", onSignal);
+
+	let result: Awaited<ReturnType<typeof runPipeline>>;
+
+	try {
+		result = await withBootedApp(ctx, () =>
+			runPipeline(ctx, stages, reporter, opts.stage),
+		);
+	} finally {
+		process.off("SIGINT", onSignal);
+		process.off("SIGTERM", onSignal);
+	}
 
 	console.log(`fixloop: model spend this run $${budget.spentUsd.toFixed(4)}`);
 

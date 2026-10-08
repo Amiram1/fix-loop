@@ -80,7 +80,7 @@ describe("Context stage", () => {
 			budget: new BudgetTracker(1),
 			store,
 			root,
-			headSha: SHA,
+			fingerprint: SHA,
 		});
 
 		expect(stage.name).toBe("Context");
@@ -118,7 +118,7 @@ describe("Context stage", () => {
 			budget,
 			store: localBriefStore(root),
 			root,
-			headSha: SHA,
+			fingerprint: SHA,
 		});
 
 		const ctx = newCtx();
@@ -176,7 +176,7 @@ describe("Context stage", () => {
 				budget: new BudgetTracker(1),
 				store,
 				root,
-				headSha,
+				fingerprint: headSha,
 			});
 
 		const reply = () =>
@@ -231,7 +231,7 @@ describe("Context stage", () => {
 				budget: new BudgetTracker(1),
 				store,
 				root,
-				headSha: SHA,
+				fingerprint: SHA,
 			}).run(ctx),
 		).rejects.toThrow(/empty brief/);
 		expect(store.put).not.toHaveBeenCalled();

@@ -10,7 +10,8 @@ export interface ContextDeps {
 	store: BriefStore;
 	/** Checkout of the repository being fixed. */
 	root: string;
-	headSha: string;
+	/** From briefFingerprint: decides when a cached brief is stale. */
+	fingerprint: string;
 	/** Defaults to `config.models.fix`. */
 	model?: string;
 	/** Turn limit for generating a brief. Defaults to 25. */
@@ -24,7 +25,10 @@ export function makeContextStage(deps: ContextDeps): Stage {
 	return {
 		name: "Context",
 		run: async (ctx) => {
-			const key = briefKey(deps.headSha, await topLevelDirs(deps.root));
+			const key = briefKey(
+				deps.fingerprint,
+				await topLevelDirs(deps.root),
+			);
 
 			const cached = await deps.store.get(key);
 

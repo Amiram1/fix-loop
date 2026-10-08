@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import type { Octokit } from "@octokit/rest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { headSha } from "../src/adapters/git.js";
+import { briefFingerprint, headSha } from "../src/adapters/git.js";
 import { listOpenIssues } from "../src/adapters/github.js";
 import { parseConfig } from "../src/config/load.js";
 import { buildStages } from "../src/pipeline/stages.js";
@@ -121,5 +121,52 @@ describe("listOpenIssues", () => {
 		);
 
 		expect(issues).toEqual([{ number: 1, title: "bug one" }]);
+	});
+});
+
+describe("briefFingerprint", () => {
+	let dir: string;
+
+	beforeEach(async () => {
+		dir = await mkdtemp(join(tmpdir(), "fixloop-fp-"));
+		await exec("git", ["init", "-q"], { cwd: dir });
+		await writeFile(join(dir, "main.go"), "package main\n");
+		await writeFile(join(dir, "go.mod"), "module x\n");
+		await exec("git", ["add", "."], { cwd: dir });
+		await exec(
+			"git",
+			[
+				"-c",
+				"user.name=t",
+				"-c",
+				"user.email=t@t",
+				"commit",
+				"-qm",
+				"init",
+			],
+			{ cwd: dir },
+		);
+	});
+
+	afterEach(async () => {
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	it("stays the same for an ordinary source edit, and changes for a manifest or a new file", async () => {
+		const before = await briefFingerprint(dir);
+
+		await writeFile(join(dir, "main.go"), "package main\n// edited\n");
+		expect(await briefFingerprint(dir)).toBe(before);
+
+		await writeFile(join(dir, "go.mod"), "module y\n");
+
+		const afterManifest = await briefFingerprint(dir);
+
+		expect(afterManifest).not.toBe(before);
+
+		await exec("git", ["add", "."], { cwd: dir });
+		await writeFile(join(dir, "new.go"), "package main\n");
+		await exec("git", ["add", "."], { cwd: dir });
+		expect(await briefFingerprint(dir)).not.toBe(afterManifest);
 	});
 });

@@ -15,6 +15,8 @@ export interface StageDeps {
 	/** Checkout of the repo being fixed. Context reads it and Boot starts the app from it. */
 	root: string;
 	headSha: string;
+	/** Brief cache key input. See briefFingerprint. */
+	briefFingerprint: string;
 	listOpenIssues?: () => Promise<OpenIssue[]>;
 	runners: Partial<Record<"backend" | "frontend", AreaRunner>>;
 }
@@ -38,7 +40,7 @@ export function buildStages(deps: StageDeps): Stage[] {
 			budget: deps.budget,
 			store: deps.store,
 			root: deps.root,
-			headSha: deps.headSha,
+			fingerprint: deps.briefFingerprint,
 		}),
 		makeBootStage({ cwd: deps.root }),
 		makeReproduceStage({

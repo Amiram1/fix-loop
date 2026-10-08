@@ -1,4 +1,4 @@
-import { headSha } from "../adapters/git.js";
+import { briefFingerprint, headSha } from "../adapters/git.js";
 import { BudgetTracker } from "../agent/budget.js";
 import { createMessagesApi } from "../agent/client.js";
 import type { FixLoopConfig } from "../config/schema.js";
@@ -38,6 +38,7 @@ export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
 		store: localBriefStore(opts.root),
 		root: opts.root,
 		headSha: await headSha(opts.root),
+		briefFingerprint: await briefFingerprint(opts.root),
 		listOpenIssues: opts.listOpenIssues,
 		runners: defaultRunners(opts.config),
 	});
