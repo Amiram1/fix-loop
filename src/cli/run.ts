@@ -10,6 +10,7 @@ import { withBootedApp } from "../pipeline/boot.js";
 import { guard } from "../pipeline/guard.js";
 import { type RunContext, runPipeline } from "../pipeline/run.js";
 import { stagesFor } from "../pipeline/wiring.js";
+import { removeAllScratchCheckouts } from "../repro/workspace.js";
 import { consoleReporter, githubReporter } from "../ui/reporters.js";
 
 const execFileP = promisify(execFile);
@@ -166,6 +167,8 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 				: Promise.resolve();
 
 		void stopped
+			.catch(() => undefined)
+			.then(() => removeAllScratchCheckouts())
 			.catch(() => undefined)
 			.finally(() => {
 				process.exit(signal === "SIGINT" ? 130 : 143);
