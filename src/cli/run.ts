@@ -184,6 +184,13 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		result = await withBootedApp(ctx, () =>
 			runPipeline(ctx, stages, reporter, opts.stage),
 		);
+
+		// A dry run is for review, so show the change that Fix made.
+		if (opts.dryRun && ctx.artifacts.fix?.diff) {
+			console.log(
+				`\n--- proposed change (${ctx.artifacts.fix.status}) ---\n${ctx.artifacts.fix.diff}`,
+			);
+		}
 	} finally {
 		process.off("SIGINT", onSignal);
 		process.off("SIGTERM", onSignal);

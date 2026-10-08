@@ -27,6 +27,8 @@ export interface LoopOptions {
 	effort?: Effort;
 	maxTurns: number;
 	budget: BudgetTracker;
+	/** Checked after each round of tool results. When it returns true the loop stops early. */
+	stopWhen?: () => boolean;
 }
 
 export interface LoopResult {
@@ -34,6 +36,8 @@ export interface LoopResult {
 	turns: number;
 	usage: Usage;
 	costUsd: number;
+	/** True when stopWhen ended the loop, rather than the model finishing. */
+	stopped: boolean;
 }
 
 export function createMessagesApi(apiKey?: string): MessagesApi {
@@ -157,6 +161,7 @@ export async function runToolLoop(opts: LoopOptions): Promise<LoopResult> {
 				turns: turn,
 				usage,
 				costUsd: spent,
+				stopped: false,
 			};
 		}
 
@@ -176,6 +181,16 @@ export async function runToolLoop(opts: LoopOptions): Promise<LoopResult> {
 			results.push(await runTool(handlers.get(block.name), block));
 		}
 		messages.push({ role: "user", content: results });
+
+		if (opts.stopWhen?.()) {
+			return {
+				text: "",
+				turns: turn,
+				usage,
+				costUsd: spent,
+				stopped: true,
+			};
+		}
 	}
 
 	throw new Error(`no final answer after ${opts.maxTurns} turns`);

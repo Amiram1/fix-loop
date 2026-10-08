@@ -1,5 +1,6 @@
 // Outputs that earlier stages hand to later ones. Each field is owned by one stage:
-// Intake writes `intake`, Context writes `brief`, Boot writes `app`, Reproduce writes `reproduction`.
+// Intake writes `intake`, Context writes `brief`, Boot writes `app`, Reproduce writes `reproduction`,
+// Fix writes `fix`.
 // Agents and stages import these types; change them deliberately, they are shared contracts.
 
 export type Area = "frontend" | "backend" | "unknown";
@@ -30,6 +31,7 @@ export interface RunArtifacts {
 	brief?: string;
 	app?: BootedApp;
 	reproduction?: Reproduction;
+	fix?: FixResult;
 }
 
 /** Outcome of the Reproduce stage. A run continues to Fix only when status is "reproduced". */
@@ -39,6 +41,8 @@ export interface Reproduction {
 	/** Repo-relative path of the test that fails for the reported bug. */
 	testPath?: string;
 	testName?: string;
+	/** Full text of the red test, so Fix can put it back in a fresh checkout. */
+	testContent?: string;
 	/** Tail of the failing output: the evidence a reviewer reads first. */
 	evidence?: string;
 	/** Why the run ended without a reproduction. */
@@ -46,4 +50,18 @@ export interface Reproduction {
 	/** How many times a test was run. */
 	attempts: number;
 	costUsd: number;
+}
+
+/** Outcome of the Fix stage. A run continues to Deliver only when status is "fixed". */
+export interface FixResult {
+	status: "fixed" | "not_fixed";
+	/** The change, as a unified diff, without the red test itself. */
+	diff: string;
+	filesChanged: string[];
+	/** Models that ran, in order. More than one means the run escalated. */
+	models: string[];
+	/** Finish attempts, each of which runs the target test and the full suite. */
+	attempts: number;
+	costUsd: number;
+	reason?: string;
 }

@@ -4,6 +4,7 @@ import type { BriefStore } from "../memory/store.js";
 import type { AreaRunner } from "../repro/runner.js";
 import { makeBootStage } from "./boot.js";
 import { makeContextStage } from "./context.js";
+import { makeFixStage } from "./fix.js";
 import { makeIntakeStage, type OpenIssue } from "./intake.js";
 import { makeReproduceStage } from "./reproduce.js";
 import type { Stage } from "./run.js";
@@ -22,12 +23,12 @@ export interface StageDeps {
 }
 
 /** Stages that are not implemented yet. They report as skipped so a run shows what is missing. */
-export const PENDING_STAGES: Stage[] = ["Fix", "Deliver"].map((name) => ({
+export const PENDING_STAGES: Stage[] = ["Deliver"].map((name) => ({
 	name,
 	run: async () => ({ state: "skipped", detail: "not implemented yet" }),
 }));
 
-/** The full pipeline in order: Intake, Context, Boot, Reproduce, then the pending Fix and Deliver. */
+/** The full pipeline in order: Intake, Context, Boot, Reproduce, Fix, then the pending Deliver. */
 export function buildStages(deps: StageDeps): Stage[] {
 	return [
 		makeIntakeStage({
@@ -44,6 +45,13 @@ export function buildStages(deps: StageDeps): Stage[] {
 		}),
 		makeBootStage({ cwd: deps.root }),
 		makeReproduceStage({
+			client: deps.client,
+			budget: deps.budget,
+			root: deps.root,
+			headSha: deps.headSha,
+			runners: deps.runners,
+		}),
+		makeFixStage({
 			client: deps.client,
 			budget: deps.budget,
 			root: deps.root,

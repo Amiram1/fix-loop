@@ -1,4 +1,4 @@
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, matchesGlob } from "node:path";
 import { BudgetExceeded, type BudgetTracker } from "../agent/budget.js";
 import {
@@ -225,6 +225,10 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 			area: runner.area,
 			testPath: accepted.file,
 			testName: accepted.name,
+			testContent: await readFile(
+				join(context.checkout, accepted.file),
+				"utf8",
+			),
 			evidence: accepted.evidence,
 			attempts,
 			costUsd,
