@@ -209,4 +209,37 @@ describe("makeReproduceStage", () => {
 
 		expect(worktrees.stdout.trim().split("\n")).toHaveLength(1);
 	});
+
+	it("skips, reusing the first run's reproduction, without a model call or a checkout", async () => {
+		const create = vi.fn();
+
+		const reproduction = {
+			status: "reproduced" as const,
+			area: "backend" as const,
+			testPath: "x_test.go",
+			testName: "TestX",
+			testContent: "package a",
+			attempts: 0,
+			costUsd: 0,
+		};
+
+		const ctx = ctxWith("backend");
+
+		ctx.artifacts.reproduction = reproduction;
+
+		const outcome = await makeReproduceStage({
+			client: { create } as unknown as MessagesApi,
+			budget: new BudgetTracker(1),
+			root,
+			headSha: "not-a-commit",
+			runners: {},
+		}).run(ctx);
+
+		expect(outcome).toEqual({
+			state: "skipped",
+			detail: "reused from the first run",
+		});
+		expect(ctx.artifacts.reproduction).toBe(reproduction);
+		expect(create).not.toHaveBeenCalled();
+	});
 });

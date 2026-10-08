@@ -1,7 +1,7 @@
 // Action entry point: route the triggering event, guard it, then run the pipeline on the issue.
 import { readFile } from "node:fs/promises";
 import { Octokit } from "@octokit/rest";
-import { resumeFromReplies } from "./adapters/comments.js";
+import { resumeFromReplies, stopRun } from "./adapters/comments.js";
 import { fetchIssue, listOpenIssues } from "./adapters/github.js";
 import { loadConfig } from "./config/load.js";
 import type { FixLoopConfig } from "./config/schema.js";
@@ -11,6 +11,7 @@ import { notifyAfterRun } from "./notify/slack.js";
 import { withBootedApp } from "./pipeline/boot.js";
 import { guard } from "./pipeline/guard.js";
 import { learnFromRun } from "./pipeline/learn.js";
+import { prepareRevise, withEscalation } from "./pipeline/revise.js";
 import { type RunContext, runPipeline } from "./pipeline/run.js";
 import { stagesFor } from "./pipeline/wiring.js";
 import { NEEDS_INFO_LABEL, route } from "./router.js";
@@ -57,6 +58,14 @@ export async function main(env = process.env): Promise<void> {
 
 	const ref = { owner, repo, issue: command.issue };
 
+	// Stop works whatever the issue's labels say, and starts nothing, so it skips the guard.
+	if (command.kind === "stop") {
+		console.log(
+			await stopRun(octokit, ref, command.actor, env.GITHUB_RUN_ID),
+		);
+		return;
+	}
+
 	const issue = await fetchIssue(octokit, ref);
 
 	const verdict = guard({
@@ -68,6 +77,13 @@ export async function main(env = process.env): Promise<void> {
 	if (!verdict.allowed) {
 		console.log(`fixloop: not starting (${verdict.reason})`);
 		return;
+	}
+
+	if (command.kind === "hint") {
+		issue.replies = [
+			...(issue.replies ?? []),
+			`Maintainer hint: ${command.text}`,
+		];
 	}
 
 	// Collected before anything is published: publishing edits the status comment, which is what
@@ -106,6 +122,11 @@ export async function main(env = process.env): Promise<void> {
 		return;
 	}
 
+	// Only for this run: the config file is not changed.
+	if (command.kind === "escalate") config = withEscalation(config);
+
+	const store = githubDataStore(octokit, ref);
+
 	const ctx: RunContext = {
 		runId,
 		config,
@@ -114,10 +135,32 @@ export async function main(env = process.env): Promise<void> {
 		artifacts: {},
 	};
 
+	// A review-feedback pass builds on the PR branch and reuses the first run's red test.
+	if (command.kind === "revise") {
+		const plan = await prepareRevise({
+			root: process.cwd(),
+			store,
+			headRef: command.headRef,
+			issue: command.issue,
+		});
+
+		if (!plan.ok) {
+			await octokit.issues.createComment({
+				owner,
+				repo,
+				issue_number: command.prNumber,
+				body: plan.message,
+			});
+			console.log(`fixloop: not revising (${plan.message})`);
+			return;
+		}
+
+		ctx.artifacts.reproduction = plan.reproduction;
+		ctx.artifacts.revise = { reviewText: command.text };
+	}
+
 	// The Action passes the key as an env var or as its `anthropic-api-key` input.
 	const apiKey = env.ANTHROPIC_API_KEY ?? env["INPUT_ANTHROPIC-API-KEY"];
-
-	const store = githubDataStore(octokit, ref);
 
 	const { stages, budget } = await stagesFor({
 		root: process.cwd(),
@@ -128,6 +171,7 @@ export async function main(env = process.env): Promise<void> {
 		octokit,
 		ref,
 		dryRun: false,
+		headSha: command.kind === "revise" ? command.headSha : undefined,
 	});
 
 	const result = await withBootedApp(ctx, () =>

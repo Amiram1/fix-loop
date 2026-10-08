@@ -36,6 +36,8 @@ export interface RunArtifacts {
 	delivery?: DeliverResult;
 	/** Set by the runner when a stage hit the run budget. Notify then posts a stopped comment. */
 	stopped?: StoppedInfo;
+	/** Set for a review-feedback pass: the fix is already on the PR branch, and this is what the reviewer asked for. */
+	revise?: { reviewText: string };
 }
 
 /** Why a run ended early. Only the budget stops a run this way. */

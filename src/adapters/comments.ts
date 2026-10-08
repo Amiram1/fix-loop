@@ -119,3 +119,66 @@ export async function resumeFromReplies(
 
 	issue.labels = issue.labels.filter((l) => l !== NEEDS_INFO_LABEL);
 }
+
+const RUN_LINE_RE = /run `(\d+)`/;
+
+/** The run id on FixLoop's status comment (the line "run `<id>`"), or undefined when there is none. */
+export function findRunId(bodies: string[]): string | undefined {
+	for (const body of [...bodies].reverse()) {
+		if (body.includes(STATUS_MARKER)) {
+			const id = RUN_LINE_RE.exec(body)?.[1];
+
+			if (id) return id;
+		}
+	}
+
+	return undefined;
+}
+
+/**
+ * Cancels the workflow run named on the issue's status comment, then says so on the issue. Only
+ * bot comments count, so a commenter cannot point a stop at another run by pasting the marker.
+ * Returns the comment it posted.
+ */
+export async function stopRun(
+	octokit: Octokit,
+	ref: IssueRef,
+	actor: string,
+	currentRunId?: string,
+): Promise<string> {
+	const comments = await listComments(octokit, ref);
+
+	const runId = findRunId(
+		comments
+			.filter((c) => c.user?.login.endsWith("[bot]"))
+			.map((c) => c.body ?? ""),
+	);
+
+	let message: string;
+
+	if (!runId) {
+		message = `FixLoop: stop requested by @${actor}, but no run is recorded on this issue.`;
+	} else if (runId === currentRunId) {
+		message = `FixLoop: stop requested by @${actor}, but run \`${runId}\` is this one.`;
+	} else {
+		try {
+			await octokit.actions.cancelWorkflowRun({
+				owner: ref.owner,
+				repo: ref.repo,
+				run_id: Number(runId),
+			});
+			message = `FixLoop: stop requested by @${actor}. Cancelling run \`${runId}\`.`;
+		} catch (err) {
+			message = `FixLoop: stop requested by @${actor}, but run \`${runId}\` could not be cancelled: ${(err as Error).message}`;
+		}
+	}
+
+	await octokit.issues.createComment({
+		owner: ref.owner,
+		repo: ref.repo,
+		issue_number: ref.issue,
+		body: message,
+	});
+
+	return message;
+}

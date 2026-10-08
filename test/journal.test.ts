@@ -9,6 +9,7 @@ import {
 	type JournalEntry,
 	journalEntryFrom,
 	journalHints,
+	latestJournalEntry,
 	retrieveJournal,
 	writeJournalEntry,
 } from "../src/memory/journal.js";
@@ -440,6 +441,84 @@ describe("prompts", () => {
 		expect(start()).toBe(start(""));
 		expect(start()).not.toContain("Notes from earlier runs");
 		expect(start().endsWith("boom")).toBe(true);
+	});
+});
+
+describe("red test content", () => {
+	const withTest = (testContent: string) =>
+		journalEntryFrom(
+			ctxWith({ reproduction: { ...reproduced, testContent } }),
+			"r",
+		);
+
+	it("keeps the test's text, and a store round trip returns it", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fixloop-journal-test-"));
+
+		try {
+			const store = localDataStore(root);
+
+			await writeJournalEntry(store, withTest("func TestLogin() {}\n"));
+
+			const found = await latestJournalEntry(store, 12);
+
+			expect(found?.testContent).toBe("func TestLogin() {}\n");
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("leaves out a test over 64 KB instead of keeping a cut-off one", () => {
+		expect(withTest("x".repeat(64 * 1024)).testContent).toHaveLength(
+			64 * 1024,
+		);
+		expect(withTest("x".repeat(64 * 1024 + 1)).testContent).toBeUndefined();
+	});
+
+	it("never puts the test into hints", () => {
+		const text = journalHints([
+			entry({ title: "Login", testContent: "SECRET_TEST_BODY" }),
+		]);
+
+		expect(text).toContain("Login");
+		expect(text).not.toContain("SECRET_TEST_BODY");
+	});
+});
+
+describe("latestJournalEntry", () => {
+	const files = new Map<string, string>();
+
+	const store = {
+		read: async (f: string) => files.get(f),
+		write: async () => {},
+		list: async () => [...files.keys()].sort(),
+	};
+
+	const put = (issue: number, runId: string, at: string, over = {}) =>
+		files.set(
+			`journal/${issue}-${runId}.json`,
+			JSON.stringify(entry({ issue, runId, createdAt: at, ...over })),
+		);
+
+	beforeEach(() => files.clear());
+
+	it("returns the newest entry of that issue only", async () => {
+		put(1, "a", "2026-01-01T00:00:00.000Z");
+		put(1, "b", "2026-03-01T00:00:00.000Z");
+		put(12, "c", "2026-05-01T00:00:00.000Z");
+		files.set("journal/1-junk.json", "not json");
+
+		expect((await latestJournalEntry(store, 1))?.runId).toBe("b");
+		expect((await latestJournalEntry(store, 12))?.runId).toBe("c");
+		expect(await latestJournalEntry(store, 99)).toBeUndefined();
+	});
+
+	it("skips entries the caller does not accept", async () => {
+		put(1, "a", "2026-01-01T00:00:00.000Z", { testPath: "t" });
+		put(1, "b", "2026-03-01T00:00:00.000Z");
+
+		expect(
+			(await latestJournalEntry(store, 1, (e) => !!e.testPath))?.runId,
+		).toBe("a");
 	});
 });
 
