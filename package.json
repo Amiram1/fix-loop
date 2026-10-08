@@ -18,7 +18,8 @@
 		"test": "vitest run",
 		"lint": "biome check . && eslint .",
 		"build:action": "ncc build src/index.ts -o dist/action -m && find dist/action -name '*.d.ts' -delete",
-		"lint:fix": "biome check --write . && eslint --fix ."
+		"lint:fix": "biome check --write . && eslint --fix .",
+		"fixloop": "node dist/cli.js"
 	},
 	"engines": {
 		"node": ">=24"

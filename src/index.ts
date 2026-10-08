@@ -1,10 +1,13 @@
-// Action entry point: route the triggering event, guard it, and post the status skeleton.
+// Action entry point: route the triggering event, guard it, then run the pipeline on the issue.
 import { readFile } from "node:fs/promises";
 import { Octokit } from "@octokit/rest";
-import { hasLabels, upsertStatusComment } from "./adapters/github.js";
+import { fetchIssue } from "./adapters/github.js";
+import { loadConfig } from "./config/load.js";
 import { guard } from "./pipeline/guard.js";
+import { type RunContext, runPipeline } from "./pipeline/run.js";
+import { DEFAULT_STAGES } from "./pipeline/stages.js";
 import { route } from "./router.js";
-import { renderStatus } from "./ui/statusComment.js";
+import { githubReporter } from "./ui/reporters.js";
 import { VERSION } from "./version.js";
 
 export async function main(env = process.env): Promise<void> {
@@ -25,39 +28,42 @@ export async function main(env = process.env): Promise<void> {
 		payload,
 	});
 
-	const octokit = new Octokit({ auth: env.GITHUB_TOKEN });
-
 	if (command.kind === "ignore") {
 		console.log(`fixloop: ignoring event (${command.reason})`);
 		return;
 	}
 
+	const octokit = new Octokit({ auth: env.GITHUB_TOKEN });
+
 	const ref = { owner, repo, issue: command.issue };
 
-	const labels = await hasLabels(octokit, ref);
+	const issue = await fetchIssue(octokit, ref);
 
-	const verdict = guard({ command, labels, activeRunForIssue: false });
+	const verdict = guard({
+		command,
+		labels: issue.labels,
+		activeRunForIssue: false,
+	});
 
 	if (!verdict.allowed) {
 		console.log(`fixloop: not starting (${verdict.reason})`);
 		return;
 	}
 
-	// Phase A skeleton: only the status comment. Stages are wired in Phase B.
-	await upsertStatusComment(
-		octokit,
-		ref,
-		renderStatus({
-			runId: env.GITHUB_RUN_ID ?? "local",
-			headline: "received",
-			stages: [
-				{ name: "Intake", state: "pending" },
-				{ name: "Reproduce", state: "pending" },
-				{ name: "Fix", state: "pending" },
-				{ name: "Deliver", state: "pending" },
-			],
-		}),
+	const ctx: RunContext = {
+		runId: env.GITHUB_RUN_ID ?? "local",
+		config: await loadConfig(),
+		issue,
+		dryRun: false,
+	};
+
+	const result = await runPipeline(
+		ctx,
+		DEFAULT_STAGES,
+		githubReporter(octokit, ref),
 	);
+
+	if (!result.ok) process.exitCode = 1;
 }
 
 main().catch((err) => {

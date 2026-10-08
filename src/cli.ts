@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// CLI entry point. Subcommands (init | run | eval) land in Phase B/E.
-import { VERSION } from "./version.js";
+import { main } from "./cli/main.js";
 
-console.log(`fixloop ${VERSION}`);
+main(process.argv.slice(2)).then((code) => {
+	process.exitCode = code;
+});

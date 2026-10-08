@@ -1,4 +1,5 @@
 import type { Octokit } from "@octokit/rest";
+import type { IssueInfo } from "../pipeline/run.js";
 import { STATUS_MARKER } from "../ui/statusComment.js";
 
 export interface IssueRef {
@@ -42,15 +43,22 @@ export async function upsertStatusComment(
 	return data.id;
 }
 
-export async function hasLabels(
+export async function fetchIssue(
 	octokit: Octokit,
 	ref: IssueRef,
-): Promise<string[]> {
+): Promise<IssueInfo> {
 	const { data } = await octokit.issues.get({
 		owner: ref.owner,
 		repo: ref.repo,
 		issue_number: ref.issue,
 	});
 
-	return data.labels.map((l) => (typeof l === "string" ? l : (l.name ?? "")));
+	return {
+		number: data.number,
+		title: data.title,
+		body: data.body ?? "",
+		labels: data.labels.map((l) =>
+			typeof l === "string" ? l : (l.name ?? ""),
+		),
+	};
 }
