@@ -6,7 +6,7 @@ app:
   base_url: http://localhost:3456
   seed: ./scripts/fixloop-seed.sh
 logs:
-  - { type: docker, services: [api] }
+  - { type: docker, services: [api], compose_file: docker-compose.fixloop.yml }
 tests:
   backend:
     run: go test ./pkg/utils/ -run {{name}}

@@ -6,6 +6,8 @@ export const LogSourceSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("docker"),
 		services: z.array(z.string().min(1)).min(1),
+		/** Passed as `docker compose -f` when collecting logs. Omit to use compose's default file lookup. */
+		compose_file: z.string().min(1).optional(),
 	}),
 	z.object({ type: z.literal("file"), path: z.string().min(1) }),
 ]);

@@ -44,4 +44,31 @@ describe("parseConfig", () => {
 
 		expect(() => parseConfig(withLogs)).toThrow(/logs/);
 	});
+
+	it("accepts compose_file on docker log sources", () => {
+		const cfg = parseConfig(
+			`${minimal}logs:\n  - { type: docker, services: [api], compose_file: docker-compose.fixloop.yml }\n`,
+		);
+
+		expect(cfg.logs).toEqual([
+			{
+				type: "docker",
+				services: ["api"],
+				compose_file: "docker-compose.fixloop.yml",
+			},
+		]);
+	});
+
+	it("keeps compose_file optional and rejects an empty one", () => {
+		const bare = parseConfig(
+			`${minimal}logs:\n  - { type: docker, services: [api] }\n`,
+		);
+
+		expect(bare.logs[0]).not.toHaveProperty("compose_file");
+		expect(() =>
+			parseConfig(
+				`${minimal}logs:\n  - { type: docker, services: [api], compose_file: "" }\n`,
+			),
+		).toThrow(/compose_file/);
+	});
 });
