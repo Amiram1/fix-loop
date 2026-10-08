@@ -11,6 +11,15 @@ export function makeBootStage(deps: BootStageDeps = {}): Stage {
 	return {
 		name: "Boot",
 		run: async (ctx) => {
+			// Only a frontend report can need the running app (its UI tests). Building and starting the
+			// app takes minutes on a fresh runner, so a backend or unknown-area run does not pay for it.
+			if (ctx.artifacts.intake?.area !== "frontend") {
+				return {
+					state: "skipped",
+					detail: `no app needed for area "${ctx.artifacts.intake?.area ?? "unknown"}"`,
+				};
+			}
+
 			const app = await bootApp({
 				...deps,
 				config: ctx.config,

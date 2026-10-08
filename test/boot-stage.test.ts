@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Exec } from "../src/boot/exec.js";
 import { ConfigSchema } from "../src/config/schema.js";
 import type { BootedApp } from "../src/pipeline/artifacts.js";
@@ -14,12 +14,20 @@ const config = ConfigSchema.parse({
 	tests: { full: "make test" },
 });
 
+// A frontend report: the only kind that needs the running app.
 const ctx = (): RunContext => ({
 	runId: "t",
 	config,
 	issue: { number: 1, title: "t", body: "", labels: [] },
 	dryRun: true,
-	artifacts: {},
+	artifacts: {
+		intake: {
+			area: "frontend",
+			severity: "S3",
+			summary: "s",
+			injectionSuspected: false,
+		},
+	},
 });
 
 const fakeApp = (stop: () => Promise<void>): BootedApp => ({
@@ -135,5 +143,30 @@ describe("withBootedApp", () => {
 		await expect(withBootedApp(ctx(), async () => "ok")).resolves.toBe(
 			"ok",
 		);
+	});
+
+	it("does not boot the app for a backend report, which never drives it", async () => {
+		const exec = vi.fn(async () => ({ code: 0, stdout: "", stderr: "" }));
+
+		const ctx = {
+			runId: "t",
+			config,
+			issue: { number: 1, title: "t", body: "", labels: [] },
+			dryRun: true,
+			artifacts: {
+				intake: {
+					area: "backend",
+					severity: "S2",
+					summary: "s",
+					injectionSuspected: false,
+				},
+			},
+		} as unknown as RunContext;
+
+		const outcome = await makeBootStage({ exec }).run(ctx);
+
+		expect(outcome.state).toBe("skipped");
+		expect(exec).not.toHaveBeenCalled();
+		expect(ctx.artifacts.app).toBeUndefined();
 	});
 });
