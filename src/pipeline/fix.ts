@@ -158,6 +158,10 @@ export function makeFixStage(deps: FixDeps): Stage {
 					maxAttempts: ctx.config.budget.max_fix_iterations,
 					maxTurns: deps.maxTurns ?? 30,
 					withApp,
+					effort: {
+						fix: ctx.config.effort.fix,
+						escalate: ctx.config.effort.escalate,
+					},
 				});
 
 				ctx.artifacts.fix = fix;

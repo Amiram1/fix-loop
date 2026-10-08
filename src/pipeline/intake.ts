@@ -131,7 +131,7 @@ export function makeIntakeStage(deps: IntakeDeps): Stage {
 				messages: [{ role: "user", content: prompt }],
 				maxTurns: 1,
 				maxTokens: 1024,
-				effort: "low",
+				effort: config.effort.triage,
 				budget: deps.budget,
 			});
 

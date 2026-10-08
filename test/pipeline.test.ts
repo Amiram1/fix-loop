@@ -135,6 +135,18 @@ describe("withDevModels", () => {
 			escalate: "claude-haiku-5-5",
 		});
 		expect(dev.app).toEqual(config.app);
+		expect(dev.effort).toEqual({
+			triage: "low",
+			reproduce: "low",
+			fix: "low",
+			escalate: "low",
+		});
+		expect(dev.effort).toEqual({
+			triage: "low",
+			reproduce: "low",
+			fix: "low",
+			escalate: "low",
+		});
 	});
 });
 

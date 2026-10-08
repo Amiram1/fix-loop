@@ -3,6 +3,7 @@ import { dirname, join, matchesGlob } from "node:path";
 import { BudgetExceeded, type BudgetTracker } from "../agent/budget.js";
 import {
 	cachedSystem,
+	type Effort,
 	type MessagesApi,
 	runToolLoop,
 	type ToolHandler,
@@ -76,6 +77,8 @@ export interface FixOptions {
 	) => Promise<TestRun>;
 	/** Boots the app from the checkout for UI targets. Defaults to running the test with no app. */
 	withApp?: WithApp;
+	/** Effort for the fix model and for the escalation model. Defaults: medium and high. */
+	effort?: { fix: Effort; escalate: Effort };
 }
 
 /**
@@ -300,12 +303,12 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 		{
 			model: opts.fixModel,
 			limit: Math.min(ESCALATE_AFTER, opts.maxAttempts),
-			effort: "medium" as const,
+			effort: opts.effort?.fix ?? ("medium" as const),
 		},
 		{
 			model: opts.escalateModel,
 			limit: opts.maxAttempts,
-			effort: "high" as const,
+			effort: opts.effort?.escalate ?? ("high" as const),
 		},
 	];
 

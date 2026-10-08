@@ -7,5 +7,11 @@ export function withDevModels(config: FixLoopConfig): FixLoopConfig {
 	return {
 		...config,
 		models: { triage: DEV_MODEL, fix: DEV_MODEL, escalate: DEV_MODEL },
+		effort: {
+			triage: "low",
+			reproduce: "low",
+			fix: "low",
+			escalate: "low",
+		},
 	};
 }

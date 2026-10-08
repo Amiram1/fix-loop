@@ -43,7 +43,8 @@ describe("backend reproduction against Vikunja", () => {
 			try {
 				const result = await reproduce({
 					client: createMessagesApi(key),
-					model: "claude-sonnet-5-5",
+					model: "claude-haiku-5-5",
+					effort: "low",
 					budget: new BudgetTracker(0.75),
 					runner,
 					context: { checkout, env: {} },

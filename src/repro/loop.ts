@@ -3,6 +3,7 @@ import { dirname, join, matchesGlob } from "node:path";
 import { BudgetExceeded, type BudgetTracker } from "../agent/budget.js";
 import {
 	cachedSystem,
+	type Effort,
 	type MessagesApi,
 	runToolLoop,
 	type ToolHandler,
@@ -29,6 +30,8 @@ export interface ReproduceOptions {
 	context: RunContext;
 	issue: { title: string; body: string };
 	maxTurns: number;
+	/** Defaults to medium. */
+	effort?: Effort;
 }
 
 /** Stable across runs for one area, so it is cached as the system prompt. */
@@ -206,7 +209,7 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 				finish,
 			],
 			maxTokens: 8000,
-			effort: "medium",
+			effort: opts.effort ?? "medium",
 			maxTurns: opts.maxTurns,
 			budget: opts.budget,
 		});

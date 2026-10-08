@@ -85,6 +85,28 @@ export const ConfigSchema = z.object({
 			fix: "claude-sonnet-5-5",
 			escalate: "claude-opus-5-5",
 		}),
+	/** Effort per stage: how hard the model thinks. Production defaults; development configs lower them. */
+	effort: z
+		.object({
+			triage: z
+				.enum(["low", "medium", "high", "xhigh", "max"])
+				.default("low"),
+			reproduce: z
+				.enum(["low", "medium", "high", "xhigh", "max"])
+				.default("medium"),
+			fix: z
+				.enum(["low", "medium", "high", "xhigh", "max"])
+				.default("medium"),
+			escalate: z
+				.enum(["low", "medium", "high", "xhigh", "max"])
+				.default("high"),
+		})
+		.default({
+			triage: "low",
+			reproduce: "medium",
+			fix: "medium",
+			escalate: "high",
+		}),
 	notify: z
 		.object({
 			slack: z

@@ -1,5 +1,4 @@
-# Example FixLoop config for the local Vikunja demo copy (branch main).
-# The demo repo is not published yet; it will be uploaded later.
+# FixLoop config for the Vikunja demo repo (Amiram1/vikunja, private).
 app:
   # --build: the Fix stage boots the app from a checkout with a new change, so the image must be rebuilt.
   up: docker compose -f docker-compose.fixloop.yml up -d --build --wait
@@ -7,6 +6,17 @@ app:
   down: docker compose -f docker-compose.fixloop.yml down -v --rmi local
   base_url: http://localhost:3456
   seed: ./scripts/fixloop-seed.sh
+# Development settings: every run uses Haiku at low effort to keep API cost down.
+# Before production, delete this block so the schema defaults apply (Sonnet, Opus, medium and high effort).
+models:
+  triage: claude-haiku-5-5
+  fix: claude-haiku-5-5
+  escalate: claude-haiku-5-5
+effort:
+  triage: low
+  reproduce: low
+  fix: low
+  escalate: low
 logs:
   - { type: docker, services: [api], compose_file: docker-compose.fixloop.yml }
 tests:
