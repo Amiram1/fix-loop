@@ -35,3 +35,41 @@ describe("run", () => {
 		expect(r.stderr).not.toBe("");
 	});
 });
+
+describe("command environment", () => {
+	it("keeps FixLoop's secrets away from commands, and keeps the variables a toolchain needs", async () => {
+		const saved = {
+			key: process.env.ANTHROPIC_API_KEY,
+			token: process.env.GITHUB_TOKEN,
+		};
+
+		process.env.ANTHROPIC_API_KEY = "sk-test-secret";
+		process.env.GITHUB_TOKEN = "ghs_test_secret";
+
+		try {
+			const probe =
+				"node -e \"console.log(String(process.env.ANTHROPIC_API_KEY) + ' ' + String(process.env.GITHUB_TOKEN) + ' ' + (process.env.PATH ? 'path' : 'nopath'))\"";
+
+			const r = await run(probe);
+
+			expect(r.stdout.trim()).toBe("undefined undefined path");
+		} finally {
+			if (saved.key === undefined) delete process.env.ANTHROPIC_API_KEY;
+			else process.env.ANTHROPIC_API_KEY = saved.key;
+
+			if (saved.token === undefined) delete process.env.GITHUB_TOKEN;
+			else process.env.GITHUB_TOKEN = saved.token;
+		}
+	});
+
+	it("passes config-provided variables through", async () => {
+		const r = await run(
+			'node -e "console.log(process.env.FIXLOOP_TEST_USER)"',
+			{
+				env: { FIXLOOP_TEST_USER: "fixloop" },
+			},
+		);
+
+		expect(r.stdout.trim()).toBe("fixloop");
+	});
+});

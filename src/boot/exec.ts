@@ -4,7 +4,7 @@ export interface ExecOptions {
 	cwd?: string;
 	/** Kills the command (and its process group) after this many ms. No limit when unset. */
 	timeoutMs?: number;
-	/** Merged over process.env. Values are never printed by FixLoop. */
+	/** Merged over the allowlisted environment (see `commandEnv`). Values are never printed by FixLoop. */
 	env?: Record<string, string>;
 }
 
@@ -26,12 +26,62 @@ function keepTail(text: string): string {
 		: text;
 }
 
+/**
+ * Variables a command may inherit. Commands run tests that the agent wrote from untrusted issue text,
+ * so they must not see FixLoop's own secrets (the model key, the GitHub token, and anything else),
+ * and must not get the network-level credentials a runner carries. Config-provided env is added on
+ * top of this list by the caller.
+ */
+const INHERITED = [
+	"PATH",
+	"HOME",
+	"USER",
+	"SHELL",
+	"LANG",
+	"LC_ALL",
+	"TERM",
+	"TMPDIR",
+	"CI",
+	"RUNNER_TEMP",
+	"RUNNER_OS",
+	"XDG_CACHE_HOME",
+	"XDG_CONFIG_HOME",
+	"XDG_DATA_HOME",
+	"PNPM_HOME",
+	"GOROOT",
+	"GOPATH",
+	"GOCACHE",
+	"GOMODCACHE",
+	"GOFLAGS",
+	"GOTOOLCHAIN",
+	"GOPROXY",
+	"GOSUMDB",
+	"GOPRIVATE",
+	"DOCKER_HOST",
+	"DOCKER_CONFIG",
+];
+
+/** The inherited variables that are set, and nothing else. */
+export function commandEnv(
+	source: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+	const env: Record<string, string> = {};
+
+	for (const name of INHERITED) {
+		const value = source[name];
+
+		if (value !== undefined) env[name] = value;
+	}
+
+	return env;
+}
+
 export const run: Exec = (cmd, opts = {}) =>
 	new Promise((resolve) => {
 		const child = spawn(cmd, {
 			shell: true,
 			cwd: opts.cwd,
-			env: { ...process.env, ...opts.env },
+			env: { ...commandEnv(), ...opts.env },
 			// Own process group so a timeout can kill the whole shell tree, not just the shell.
 			detached: process.platform !== "win32",
 			stdio: ["ignore", "pipe", "pipe"],
