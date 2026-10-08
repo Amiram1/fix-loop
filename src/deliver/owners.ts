@@ -26,6 +26,11 @@ export interface ReviewerQuery {
 	issueAuthor?: string;
 	/** Needed only for the git fallback. Without it the fallback reports why it cannot pick anyone. */
 	lookupLogin?: LoginLookup;
+	/**
+	 * Whether a login is a collaborator on the repo. A candidate who is not is skipped, because
+	 * GitHub cannot request them as a reviewer. Without it every candidate is accepted.
+	 */
+	isCollaborator?: (login: string) => Promise<boolean>;
 }
 
 export interface ReviewerResult {
@@ -170,7 +175,20 @@ async function topEmails(root: string, files: string[]): Promise<string[]> {
 export async function reviewerFor(
 	query: ReviewerQuery,
 ): Promise<ReviewerResult> {
-	const { root, changedFiles, issueAuthor, lookupLogin } = query;
+	const { root, changedFiles, issueAuthor, lookupLogin, isCollaborator } =
+		query;
+
+	// A check that fails counts as "not a collaborator": a reviewer request that cannot be made
+	// would fail later anyway.
+	const allowed = async (login: string): Promise<boolean> => {
+		if (!isCollaborator) return true;
+
+		try {
+			return await isCollaborator(login);
+		} catch {
+			return false;
+		}
+	};
 
 	const owner = ownerFromRules(
 		await readCodeowners(root),
@@ -178,7 +196,9 @@ export async function reviewerFor(
 		issueAuthor,
 	);
 
-	if (owner) return { reviewer: owner, reason: "CODEOWNERS" };
+	if (owner && (await allowed(owner))) {
+		return { reviewer: owner, reason: "CODEOWNERS" };
+	}
 
 	if (!lookupLogin) {
 		return {
@@ -212,7 +232,7 @@ export async function reviewerFor(
 			};
 		}
 
-		if (login && !sameLogin(login, issueAuthor))
+		if (login && !sameLogin(login, issueAuthor) && (await allowed(login)))
 			return {
 				reviewer: login,
 				reason: "most frequent author in git history",
@@ -220,7 +240,7 @@ export async function reviewerFor(
 	}
 
 	return {
-		reason: "no CODEOWNERS owner, and no top committer has a GitHub login other than the issue author",
+		reason: "no CODEOWNERS owner, and no top committer is a collaborator on the repo other than the issue author",
 	};
 }
 
@@ -243,5 +263,29 @@ export function githubLoginLookup(octokit: Octokit): LoginLookup {
 		});
 
 		return data.items[0]?.login;
+	};
+}
+
+/**
+ * Whether a login is a collaborator on the repo, through GitHub's collaborator endpoint.
+ * 404 means "no", any other failure is thrown and treated as "no" by reviewerFor.
+ */
+export function collaboratorCheck(
+	octokit: Octokit,
+	ref: { owner: string; repo: string },
+): (login: string) => Promise<boolean> {
+	return async (login) => {
+		try {
+			await octokit.repos.checkCollaborator({
+				owner: ref.owner,
+				repo: ref.repo,
+				username: login,
+			});
+			return true;
+		} catch (err) {
+			if ((err as { status?: number }).status === 404) return false;
+
+			throw err;
+		}
 	};
 }

@@ -310,4 +310,48 @@ describe("githubLoginLookup", () => {
 
 		expect(await githubLoginLookup(client)("a@x.test")).toBeUndefined();
 	});
+
+	it("skips a git-history author who is not a collaborator", async () => {
+		await commit("alice@x.test", { "docs/shared.md": "1" });
+		await commit("alice@x.test", { "docs/shared.md": "2" });
+		await commit("bob@x.test", { "docs/shared.md": "3" });
+
+		const result = await reviewerFor({
+			root,
+			changedFiles: ["docs/shared.md"],
+			lookupLogin: lookup,
+			isCollaborator: async (login) => login === "bob",
+		});
+
+		expect(result.reviewer).toBe("bob");
+	});
+
+	it("names no reviewer when no candidate is a collaborator", async () => {
+		await commit("alice@x.test", { "docs/shared.md": "1" });
+
+		const result = await reviewerFor({
+			root,
+			changedFiles: ["docs/shared.md"],
+			lookupLogin: lookup,
+			isCollaborator: async () => false,
+		});
+
+		expect(result.reviewer).toBeUndefined();
+		expect(result.reason).toMatch(/collaborator/);
+	});
+
+	it("treats a failing collaborator check as not a collaborator", async () => {
+		await commit("alice@x.test", { "docs/shared.md": "1" });
+
+		const result = await reviewerFor({
+			root,
+			changedFiles: ["docs/shared.md"],
+			lookupLogin: lookup,
+			isCollaborator: async () => {
+				throw new Error("network down");
+			},
+		});
+
+		expect(result.reviewer).toBeUndefined();
+	});
 });

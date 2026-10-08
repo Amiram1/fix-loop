@@ -5,7 +5,12 @@ import { upsertPullRequest } from "../adapters/pulls.js";
 import type { DeliverResult, GateResult } from "../pipeline/artifacts.js";
 import type { RunContext } from "../pipeline/run.js";
 import { branchName, commitFixBranch } from "./branch.js";
-import { githubLoginLookup, type LoginLookup, reviewerFor } from "./owners.js";
+import {
+	collaboratorCheck,
+	githubLoginLookup,
+	type LoginLookup,
+	reviewerFor,
+} from "./owners.js";
 import { renderPrBody } from "./prBody.js";
 
 export interface DeliverOptions {
@@ -97,6 +102,8 @@ export async function deliverFix(opts: DeliverOptions): Promise<DeliverResult> {
 		lookupLogin:
 			opts.lookupLogin ??
 			(octokit ? githubLoginLookup(octokit) : undefined),
+		isCollaborator:
+			octokit && ref ? collaboratorCheck(octokit, ref) : undefined,
 	});
 
 	// The only client that may write. A dry run leaves it out, so it cannot reach a write call.

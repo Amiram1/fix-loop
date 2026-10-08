@@ -18,6 +18,8 @@ export interface FakeOptions {
 	requestReviewersError?: string;
 	/** Email to login for `search.users`. */
 	users?: Record<string, string>;
+	/** Logins that are collaborators on the repo. Unset means everyone is. */
+	collaborators?: string[];
 }
 
 /** The calls that change something on GitHub. Every other call is a read. */
@@ -61,6 +63,19 @@ export function fakeOctokit(options: FakeOptions = {}) {
 		data: [...labels].map((name) => ({ name })),
 	}));
 
+	const repos = {
+		checkCollaborator: rec("repos.checkCollaborator", ({ username }) => {
+			if (
+				options.collaborators &&
+				!options.collaborators.includes(String(username))
+			) {
+				throw notFound();
+			}
+
+			return { status: 204 };
+		}),
+	};
+
 	const octokit = {
 		// The real paginate takes the endpoint method; here it just calls it and returns its data.
 		paginate: async (
@@ -80,6 +95,7 @@ export function fakeOctokit(options: FakeOptions = {}) {
 			addLabels: rec("issues.addLabels", () => ({ data: [] })),
 		},
 		repos: {
+			...repos,
 			get: rec("repos.get", () => ({ data: { default_branch: "main" } })),
 		},
 		git: {
