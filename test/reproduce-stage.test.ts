@@ -85,6 +85,38 @@ describe("makeReproduceStage", () => {
 		expect(create).not.toHaveBeenCalled();
 	});
 
+	it("hands the brief from the Context stage to the model in the system prompt", async () => {
+		const create = vi.fn<MessagesApi["create"]>().mockResolvedValue({
+			content: [{ type: "text", text: "giving up" }],
+			stop_reason: "end_turn",
+			usage: { input_tokens: 1, output_tokens: 1 },
+		} as unknown as Anthropic.Message);
+
+		const runner: AreaRunner = {
+			area: "backend",
+			testGlobs: ["*_test.go"],
+			hints: "",
+			runTest: vi.fn(async () => ({ exitCode: 1, output: "" })),
+			classify: () => ({ red: true, reason: "assertion failed" }),
+		};
+
+		const ctx = ctxWith("backend");
+
+		ctx.artifacts.brief = "# Brief\n\nA demo app.";
+
+		await makeReproduceStage({
+			client: { create },
+			budget: new BudgetTracker(1),
+			root,
+			headSha: "HEAD",
+			runners: { backend: runner },
+		}).run(ctx);
+
+		expect(JSON.stringify(create.mock.calls[0]?.[0].system)).toContain(
+			"A demo app.",
+		);
+	});
+
 	it("writes the test in a scratch checkout, reports reproduced, and leaves the user's repo alone", async () => {
 		const runner: AreaRunner = {
 			area: "backend",

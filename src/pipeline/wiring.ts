@@ -5,7 +5,7 @@ import { BudgetTracker } from "../agent/budget.js";
 import { createMessagesApi } from "../agent/client.js";
 import type { FixLoopConfig } from "../config/schema.js";
 import type { DataStore } from "../memory/datastore.js";
-import { localBriefStore } from "../memory/store.js";
+import { briefStoreFrom, localBriefStore } from "../memory/store.js";
 import { defaultRunners } from "../repro/runners.js";
 import type { OpenIssue } from "./intake.js";
 import type { Stage } from "./run.js";
@@ -31,7 +31,7 @@ export interface RunWiring {
 	budget: BudgetTracker;
 }
 
-/** Builds the pipeline for one run: a fresh budget, the local brief store, and the commit under `root`. */
+/** Builds the pipeline for one run: a fresh budget, the brief store (the data store when there is one), and the commit under `root`. */
 export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
 	if (!opts.apiKey) {
 		throw new Error(
@@ -44,7 +44,9 @@ export async function stagesFor(opts: WiringOptions): Promise<RunWiring> {
 	const stages = buildStages({
 		client: createMessagesApi(opts.apiKey),
 		budget,
-		store: localBriefStore(opts.root),
+		store: opts.dataStore
+			? briefStoreFrom(opts.dataStore)
+			: localBriefStore(opts.root),
 		root: opts.root,
 		headSha: await headSha(opts.root),
 		briefFingerprint: await briefFingerprint(opts.root),

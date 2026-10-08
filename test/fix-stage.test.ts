@@ -185,6 +185,27 @@ describe("makeFixStage", () => {
 		expect(worktrees.stdout.trim().split("\n")).toHaveLength(1);
 	});
 
+	it("hands the brief from the Context stage to the model in the system prompt", async () => {
+		const create = vi.fn<MessagesApi["create"]>().mockResolvedValue({
+			content: [{ type: "text", text: "giving up" }],
+			stop_reason: "end_turn",
+			usage: { input_tokens: 1, output_tokens: 1 },
+		} as unknown as Anthropic.Message);
+
+		const ctx = ctxWith("true", red);
+
+		ctx.artifacts.brief = "# Brief\n\nA demo app.";
+
+		await stage({ create }).run(ctx);
+
+		expect(JSON.stringify(create.mock.calls[0]?.[0].system)).toContain(
+			"Codebase brief",
+		);
+		expect(JSON.stringify(create.mock.calls[0]?.[0].system)).toContain(
+			"A demo app.",
+		);
+	});
+
 	it("halts with the reason when the fix is not accepted", async () => {
 		const create = vi.fn<MessagesApi["create"]>().mockResolvedValue({
 			content: [{ type: "text", text: "giving up" }],

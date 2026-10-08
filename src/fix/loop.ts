@@ -9,6 +9,7 @@ import {
 	type ToolHandler,
 } from "../agent/client.js";
 import { run as execShell } from "../boot/exec.js";
+import { withBrief } from "../memory/brief.js";
 import { createRepoTools } from "../memory/tools.js";
 import type { FixResult } from "../pipeline/artifacts.js";
 import {
@@ -81,6 +82,8 @@ export interface FixOptions {
 	effort?: { fix: Effort; escalate: Effort };
 	/** Notes from earlier runs (journalHints). Goes in the first user prompt, so the cached system prompt stays the same. */
 	hints?: string;
+	/** Codebase brief. Goes in the cached system prompt, after the instructions. */
+	brief?: string;
 }
 
 /**
@@ -343,7 +346,9 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 			await runToolLoop({
 				client: opts.client,
 				model: phase.model,
-				system: cachedSystem(fixSystemPrompt(runner)),
+				system: cachedSystem(
+					withBrief(fixSystemPrompt(runner), opts.brief),
+				),
 				messages: [{ role: "user", content: prompt }],
 				tools: [
 					...createRepoTools(context.checkout),

@@ -103,7 +103,9 @@ Every stage writes a `StageResult` to the ledger, so a failed run tells you wher
 ```
 confidence = 0.35·reproduced_red + 0.25·targeted_green + 0.2·suite_green
            + 0.1·(diff ≤ max_diff_lines) + 0.1·llm_self_assessment
-risk_high  = touches risk.high_paths || severity == S1 || diff > max_diff_lines
+risk_high  = touches risk.high_paths || (severity == S1 && corroborated) || diff > max_diff_lines
+            # corroborated: a changed file is in high_paths, or the issue text has a security or data keyword;
+            # an uncorroborated S1 counts as S2, because the model flips S1 and S2 between runs
 READY_PR       if confidence ≥ 0.8 && !risk_high
 DRAFT_PR       if confidence ≥ 0.5
 DIAGNOSIS_ONLY otherwise (comment root-cause hypothesis + evidence + escalate)

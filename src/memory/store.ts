@@ -1,9 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { DataStore } from "./datastore.js";
 
 /**
- * Where generated briefs are kept between runs. Only the local-directory store exists so far;
- * a store backed by the `fixloop-data` branch of the target repo (PLAN.md section 3) comes later.
+ * Where generated briefs are kept between runs: the `fixloop-data` branch of the target repo
+ * (briefStoreFrom) or a local directory (localBriefStore, for tests and local runs).
  */
 export interface BriefStore {
 	/** Returns the stored brief, or undefined when there is none for `key`. */
@@ -14,10 +15,24 @@ export interface BriefStore {
 /** Keys become file names, so they must not be able to name another directory. */
 const KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-function fileFor(dir: string, key: string): string {
+function checkedKey(key: string): string {
 	if (!KEY_PATTERN.test(key)) throw new Error(`invalid brief key "${key}"`);
 
-	return path.join(dir, `${key}.md`);
+	return key;
+}
+
+function fileFor(dir: string, key: string): string {
+	return path.join(dir, `${checkedKey(key)}.md`);
+}
+
+/** Keeps briefs at `brief/<key>.md` in a data store, so they live on the data branch between runs. */
+export function briefStoreFrom(dataStore: DataStore): BriefStore {
+	const file = (key: string) => `brief/${checkedKey(key)}.md`;
+
+	return {
+		get: async (key) => dataStore.read(file(key)),
+		put: async (key, text) => dataStore.write(file(key), text),
+	};
 }
 
 /** Keeps briefs in `<root>/.fixloop/brief/<key>.md`. The directory is git-ignored. */

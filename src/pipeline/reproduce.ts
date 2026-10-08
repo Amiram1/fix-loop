@@ -73,6 +73,7 @@ export function makeReproduceStage(deps: ReproduceDeps): Stage {
 					issue: ctx.issue,
 					maxTurns: deps.maxTurns ?? 20,
 					hints: await hintsFor(deps.store, ctx),
+					brief: ctx.artifacts.brief,
 					effort: ctx.config.effort.reproduce,
 				});
 

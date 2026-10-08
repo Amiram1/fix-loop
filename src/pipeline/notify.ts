@@ -2,6 +2,7 @@ import type { Octokit } from "@octokit/rest";
 import type { IssueRef } from "../adapters/github.js";
 import { postDiagnosis, renderDiagnosis } from "../notify/diagnosis.js";
 import { postNeedsInfo, renderNeedsInfo } from "../notify/needsInfo.js";
+import { postStopped, renderStopped } from "../notify/stopped.js";
 import type { Stage } from "./run.js";
 
 export interface NotifyDeps {
@@ -11,7 +12,8 @@ export interface NotifyDeps {
 }
 
 /**
- * Stage 8: tells the reporter what happened when there is no PR. A bug that was not reproduced gets
+ * Stage 8: tells the reporter what happened when there is no PR. A run that hit its budget gets the
+ * stopped comment, whatever else it left behind. A bug that was not reproduced gets
  * the needs-info question. A reproduced bug with a diagnosis-only gate gets the diagnosis.
  * In a dry run the text is recorded on `ctx.artifacts.delivery` and nothing is posted.
  */
@@ -25,6 +27,28 @@ export function makeNotifyStage(deps: NotifyDeps): Stage {
 		name: "Notify",
 		run: async (ctx) => {
 			const repro = ctx.artifacts.reproduction;
+
+			const { stopped } = ctx.artifacts;
+
+			if (stopped) {
+				if (!target) {
+					ctx.artifacts.delivery = {
+						status: "dry_run",
+						detail: renderStopped(stopped),
+					};
+					return {
+						state: "done",
+						detail: "dry run: stopped comment not posted",
+					};
+				}
+
+				ctx.artifacts.delivery = await postStopped(
+					target.octokit,
+					target.ref,
+					stopped,
+				);
+				return { state: "done", detail: "stopped comment posted" };
+			}
 
 			// An unknown area never reached Reproduce, so the question is about the area itself.
 			const unknownArea =

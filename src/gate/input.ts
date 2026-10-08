@@ -13,6 +13,8 @@ export interface GateInput {
 	diffLines: number;
 	filesChanged: string[];
 	severity: Severity;
+	/** The issue title and body, for the keywords that corroborate an S1. Only searched, never shown. */
+	issueText?: string;
 }
 
 /**
@@ -36,7 +38,7 @@ export function countDiffLines(diff: string): number {
 
 /**
  * Builds the gate input from what earlier stages left on the context. A missing artifact gives the
- * conservative value: not reproduced, not green, no diff, and S1 so that nothing reaches "ready".
+ * conservative value: not reproduced, not green, no diff, and S1.
  * A fixed run has already passed the target test and the full suite, so both come from `fix.status`.
  */
 export function gateInputFrom(ctx: RunContext): GateInput {
@@ -51,5 +53,6 @@ export function gateInputFrom(ctx: RunContext): GateInput {
 		diffLines: fix ? countDiffLines(fix.diff) : 0,
 		filesChanged: fix?.filesChanged ?? [],
 		severity: intake?.severity ?? "S1",
+		issueText: `${ctx.issue.title}\n${ctx.issue.body}`,
 	};
 }

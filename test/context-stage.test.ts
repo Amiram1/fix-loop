@@ -11,9 +11,14 @@ import {
 	briefKey,
 	topLevelDirs,
 } from "../src/memory/brief.js";
-import { type BriefStore, localBriefStore } from "../src/memory/store.js";
+import {
+	type BriefStore,
+	briefStoreFrom,
+	localBriefStore,
+} from "../src/memory/store.js";
 import { makeContextStage } from "../src/pipeline/context.js";
 import type { RunContext } from "../src/pipeline/run.js";
+import { memoryDataStore } from "./helpers/memory-data-store.js";
 
 const SHA = "0123456789abcdef0123456789abcdef01234567";
 
@@ -90,6 +95,43 @@ describe("Context stage", () => {
 		});
 		expect(ctx.artifacts.brief).toBe("# Cached brief");
 		expect(client.create).not.toHaveBeenCalled();
+	});
+
+	it("works with the data-branch store: a stored brief is used, and a generated one is written to brief/<key>.md", async () => {
+		const data = memoryDataStore();
+
+		const key = briefKey(SHA, await topLevelDirs(root));
+
+		await briefStoreFrom(data).put(key, "# Stored brief");
+
+		const hit = newCtx();
+
+		await makeContextStage({
+			client: fakeClient([]),
+			budget: new BudgetTracker(1),
+			store: briefStoreFrom(data),
+			root,
+			fingerprint: SHA,
+		}).run(hit);
+
+		expect(hit.artifacts.brief).toBe("# Stored brief");
+
+		const fresh = memoryDataStore();
+
+		const miss = newCtx();
+
+		await makeContextStage({
+			client: fakeClient([
+				message([{ type: "text", text: "# Made brief" }], "end_turn"),
+			]),
+			budget: new BudgetTracker(1),
+			store: briefStoreFrom(fresh),
+			root,
+			fingerprint: SHA,
+		}).run(miss);
+
+		expect(miss.artifacts.brief).toBe("# Made brief");
+		expect(fresh.files.get(`brief/${key}.md`)).toBe("# Made brief");
 	});
 
 	it("generates with repo tools on a miss, stores the result, then hits on the next run", async () => {

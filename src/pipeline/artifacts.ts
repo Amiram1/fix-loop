@@ -1,6 +1,6 @@
 // Outputs that earlier stages hand to later ones. Each field is owned by one stage:
 // Intake writes `intake`, Context writes `brief`, Boot writes `app`, Reproduce writes `reproduction`,
-// Fix writes `fix`, the gate writes `gate`, Deliver writes `delivery`.
+// Fix writes `fix`, the gate writes `gate`, Deliver writes `delivery`, the runner writes `stopped`.
 // Agents and stages import these types; change them deliberately, they are shared contracts.
 
 export type Area = "frontend" | "backend" | "unknown";
@@ -34,6 +34,15 @@ export interface RunArtifacts {
 	fix?: FixResult;
 	gate?: GateResult;
 	delivery?: DeliverResult;
+	/** Set by the runner when a stage hit the run budget. Notify then posts a stopped comment. */
+	stopped?: StoppedInfo;
+}
+
+/** Why a run ended early. Only the budget stops a run this way. */
+export interface StoppedInfo {
+	reason: "budget";
+	spentUsd: number;
+	limitUsd: number;
 }
 
 /** Outcome of the Reproduce stage. A run continues to Fix only when status is "reproduced". */
@@ -90,6 +99,7 @@ export interface DeliverResult {
 		| "pr_updated"
 		| "diagnosis_posted"
 		| "needs_info_posted"
+		| "stopped_posted"
 		| "dry_run"
 		| "skipped";
 	url?: string;

@@ -8,6 +8,7 @@ import {
 	runToolLoop,
 	type ToolHandler,
 } from "../agent/client.js";
+import { withBrief } from "../memory/brief.js";
 import { createRepoTools } from "../memory/tools.js";
 import type { Reproduction } from "../pipeline/artifacts.js";
 import { sanitizeIssueText } from "../security/sanitize.js";
@@ -34,6 +35,8 @@ export interface ReproduceOptions {
 	effort?: Effort;
 	/** Notes from earlier runs (journalHints). Goes in the user prompt, so the cached system prompt stays the same. */
 	hints?: string;
+	/** Codebase brief. Goes in the cached system prompt, after the instructions. */
+	brief?: string;
 }
 
 /** Stable across runs for one area, so it is cached as the system prompt. */
@@ -202,7 +205,9 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 		await runToolLoop({
 			client: opts.client,
 			model: opts.model,
-			system: cachedSystem(reproductionSystemPrompt(runner)),
+			system: cachedSystem(
+				withBrief(reproductionSystemPrompt(runner), opts.brief),
+			),
 			messages: [
 				{ role: "user", content: userPrompt(opts.issue, opts.hints) },
 			],
