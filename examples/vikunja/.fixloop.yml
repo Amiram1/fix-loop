@@ -26,7 +26,8 @@ tests:
     env:
       FIXLOOP_TEST_USER: fixloop
       FIXLOOP_TEST_PASSWORD: fixloop-test-pw-1
-  full: go test ./pkg/... && cd frontend && pnpm test:unit --run
+  # The Go static-file tests embed frontend/dist, so the frontend is built first, as CI does.
+  full: "(cd frontend && pnpm install --frozen-lockfile && pnpm build) && go test ./pkg/... && (cd frontend && pnpm test:unit --run)"
 areas:
   backend: ["pkg/**", "*.go"]
   frontend: ["frontend/src/**"]
