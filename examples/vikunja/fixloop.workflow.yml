@@ -1,40 +1,58 @@
 # Workflow for the Vikunja repo. Copy to .github/workflows/fixloop.yml in the target repo.
 #
-# The reproduction stage runs the repo's own tests, so the runner needs the same toolchain CI uses:
-# Go (for backend tests), Node and pnpm (for frontend tests), and Docker (for the app stack),
-# which GitHub-hosted runners already include.
+# The reproduction and fix stages run the repo's own tests, so the runner needs the same toolchain CI
+# uses: Go (backend tests), Node and pnpm (frontend tests), and Docker (for the app stack), which
+# GitHub-hosted runners already include.
 #
-# Note: `uses:` below points at the FixLoop Action. It must be a public repo or a repo in the same
-# account for the call to resolve. While FixLoop is private, run this from a copy of the FixLoop repo.
+# Events:
+#   issues opened                     -> a new run (fixloop job)
+#   issue_comment created             -> /fixloop retry | hint | escalate, a reporter's reply to a
+#                                        needs-info question (fixloop job), /fixloop stop (stop job)
+#   pull_request_review submitted     -> changes requested on a FixLoop PR: a review-feedback pass
+#   pull_request closed               -> the outcome is recorded in the ledger (outcome job)
+#
+# Note: `uses:` points at the FixLoop Action in a public repo, so it resolves from here.
 name: FixLoop
 
 on:
   issues:
     types: [opened]
-  # A reporter's answer to a needs-info question, and `/fixloop retry|stop` from collaborators.
-  # The Action's router decides what to do with each comment. The job-level `if` below keeps
-  # unrelated comments from paying for the toolchain setup.
   issue_comment:
     types: [created]
-  # A FixLoop pull request was merged or closed: the Action records the outcome in the run ledger.
-  # The router ignores pull requests whose branch does not start with `fixloop/`.
+  pull_request_review:
+    types: [submitted]
   pull_request:
     types: [closed]
 
 permissions:
-  # write, not read: the ledger and journal live on the `fixloop-data` branch of this repo, and
-  # the Action pushes to it (and creates it the first time) from this workflow.
+  # contents: the fix branch and the fixloop-data branch are written from this workflow.
   contents: write
   issues: write
   pull-requests: write
+  # actions: cancelling a run for /fixloop stop.
+  actions: write
 
 jobs:
-  # Records a FixLoop pull request's outcome in the ledger. It needs no toolchain and no model key,
-  # so it is a separate, cheap job.
+  # Records a PR's outcome in the ledger (merged, closed, or reverted). No toolchain, no model key.
   outcome:
     if: >-
       github.event_name == 'pull_request' &&
-      startsWith(github.event.pull_request.head.ref, 'fixloop/')
+      (startsWith(github.event.pull_request.head.ref, 'fixloop/') ||
+      startsWith(github.event.pull_request.head.ref, 'revert-'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: Amiram1/fix-loop@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # /fixloop stop: cancels the run that posted the status comment. Its own job, with no concurrency
+  # group, so it does not queue behind the run it is meant to cancel.
+  stop:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/fixloop stop')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,14 +61,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   fixloop:
+    # A new issue; a maintainer's /fixloop retry, hint or escalate; a reporter's answer to a
+    # needs-info question (the reporter only); or changes requested on a FixLoop PR from a maintainer.
     if: >-
       github.event_name == 'issues' ||
-      (!github.event.issue.pull_request &&
+      (github.event_name == 'issue_comment' &&
+      !github.event.issue.pull_request &&
+      !contains(github.event.comment.body, '/fixloop stop') &&
       (contains(github.event.comment.body, '/fixloop') ||
-      contains(github.event.issue.labels.*.name, 'needs-info')))
-    # At job level so a skipped comment does not take the slot of a queued run.
+      (contains(github.event.issue.labels.*.name, 'needs-info') &&
+      github.event.comment.user.login == github.event.issue.user.login))) ||
+      (github.event_name == 'pull_request_review' &&
+      github.event.review.state == 'changes_requested' &&
+      startsWith(github.event.pull_request.head.ref, 'fixloop/') &&
+      github.event.pull_request.head.repo.full_name == github.repository)
+    # At job level, so a skipped event does not take the slot of a queued run.
     concurrency:
-      group: fixloop-${{ github.event.issue.number }}
+      group: fixloop-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -62,12 +89,17 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
           df -h /
 
+      # The default branch, for every event. A review-feedback pass fetches its PR branch itself.
+      # Credentials are not persisted: commands run tests the agent wrote, and they must not read the
+      # token from .git. The one fetch that needs it gets it as a header.
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
+          persist-credentials: false
 
-      # pnpm first: setup-node's pnpm cache needs the pnpm binary to find the store. The version comes
-      # from frontend/package.json's packageManager field (pnpm@11.27.0).
+      # pnpm first: setup-node's pnpm cache needs the pnpm binary. The version comes from
+      # frontend/package.json's packageManager field (pnpm@11.27.0).
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: frontend/package.json
@@ -100,6 +132,9 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - uses: Amiram1/fix-loop@main
+        with:
+          # Optional. Empty means no Slack messages. Set the FIXLOOP_SLACK_WEBHOOK repo secret to enable.
+          slack-webhook: ${{ secrets.FIXLOOP_SLACK_WEBHOOK }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

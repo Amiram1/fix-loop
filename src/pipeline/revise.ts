@@ -19,8 +19,24 @@ export function withEscalation(config: FixLoopConfig): FixLoopConfig {
 }
 
 /** Brings the PR branch's commits into `root`'s object store, so a scratch clone of `root` can check the head out. */
-export async function fetchBranch(root: string, ref: string): Promise<void> {
-	await execFileP("git", ["fetch", "--quiet", "origin", ref], { cwd: root });
+export async function fetchBranch(
+	root: string,
+	ref: string,
+	token: string | undefined = process.env.GITHUB_TOKEN,
+): Promise<void> {
+	// The checkout does not persist its credentials (commands run tests the agent wrote, and they
+	// must not be able to read the token from .git). This one fetch gets the token as a header for
+	// this command only, and nothing is written to the repository's config.
+	const auth = token
+		? [
+				"-c",
+				`http.https://github.com/.extraheader=AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
+			]
+		: [];
+
+	await execFileP("git", [...auth, "fetch", "--quiet", "origin", ref], {
+		cwd: root,
+	});
 }
 
 /** The red test an entry kept, as a reproduction. Undefined for an entry with no usable test. */
