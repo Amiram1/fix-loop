@@ -6,6 +6,8 @@ export type Command =
 	| { kind: "stop"; issue: number; actor: string }
 	/** The reporter answered a needs-info question. */
 	| { kind: "reply"; issue: number; actor: string }
+	/** A FixLoop pull request was closed. Not a run: it only updates the ledger. */
+	| { kind: "outcome"; prNumber: number; merged: boolean; title: string }
 	| { kind: "ignore"; reason: string };
 
 export interface RoutableEvent {
@@ -84,6 +86,20 @@ export function route(event: RoutableEvent): Command {
 			kind,
 			issue: payload.issue.number,
 			actor: payload.sender.login,
+		};
+	}
+
+	if (event.name === "pull_request" && event.action === "closed") {
+		const pr = payload.pull_request;
+
+		if (!String(pr?.head?.ref).startsWith("fixloop/"))
+			return { kind: "ignore", reason: "not a fixloop pull request" };
+
+		return {
+			kind: "outcome",
+			prNumber: pr.number,
+			merged: pr.merged === true,
+			title: pr.title ?? "",
 		};
 	}
 

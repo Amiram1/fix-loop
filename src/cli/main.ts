@@ -1,4 +1,5 @@
 import { VERSION } from "../version.js";
+import { metricsCommand } from "./metrics.js";
 import { pingCommand } from "./ping.js";
 import { parseRunArgs, runCommand, UsageError } from "./run.js";
 
@@ -15,6 +16,10 @@ Options:
   --dev           force every stage onto Haiku
   --dry-run       print status updates instead of writing to GitHub
   --stage <name>  run only this stage; the others are marked not selected
+
+  fixloop metrics [--local] [--repo owner/name]
+              print the run ledger's summary: from .fixloop/data with --local, else from the
+              fixloop-data branch of the repo (token from GITHUB_TOKEN or gh auth token)
 
   fixloop ping [--model <id>]   one low-effort call to check the key and its cost (default: claude-haiku-5-5)
 `;
@@ -35,6 +40,8 @@ export async function main(argv: string[]): Promise<number> {
 		}
 
 		if (command === "run") return await runCommand(parseRunArgs(rest));
+
+		if (command === "metrics") return await metricsCommand(rest);
 
 		if (command === "ping") return await pingCommand(rest);
 
