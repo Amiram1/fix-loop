@@ -425,3 +425,23 @@ describe("prompts", () => {
 		expect(start().endsWith("boom")).toBe(true);
 	});
 });
+
+describe("retrieval relevance", () => {
+	it("does not retrieve a fixed entry that matches nothing in the query", async () => {
+		const { retrieveJournal } = await import("../src/memory/journal.js");
+
+		const store = {
+			read: async () => undefined,
+			write: async () => {},
+			list: async () => [],
+		};
+
+		expect(
+			await retrieveJournal(store, {
+				area: "frontend",
+				files: [],
+				keywords: [],
+			}),
+		).toEqual([]);
+	});
+});

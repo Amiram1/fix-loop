@@ -144,9 +144,23 @@ function score(entry: JournalEntry, query: JournalQuery): number {
 		if (title.includes(word)) total += 1;
 	}
 
-	if (entry.outcome === "fixed") total += 1;
-
 	return total;
+}
+
+/**
+ * Relevance is area, file and keyword matches. A fixed outcome only breaks ties between entries
+ * that matched; on its own it never qualifies an entry, so unrelated fixes do not leak into hints.
+ */
+function rank(
+	entry: JournalEntry,
+	query: JournalQuery,
+): { relevance: number; total: number } {
+	const relevance = score(entry, query);
+
+	return {
+		relevance,
+		total: relevance + (entry.outcome === "fixed" ? 0.5 : 0),
+	};
 }
 
 function newerFirst(a: JournalEntry, b: JournalEntry): number {
@@ -179,9 +193,9 @@ export async function retrieveJournal(
 	}
 
 	return entries
-		.map((entry) => ({ entry, score: score(entry, query) }))
-		.filter((hit) => hit.score > 0)
-		.sort((a, b) => b.score - a.score || newerFirst(a.entry, b.entry))
+		.map((entry) => ({ entry, ...rank(entry, query) }))
+		.filter((hit) => hit.relevance > 0)
+		.sort((a, b) => b.total - a.total || newerFirst(a.entry, b.entry))
 		.slice(0, limit)
 		.map((hit) => hit.entry);
 }
