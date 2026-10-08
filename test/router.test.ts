@@ -53,6 +53,87 @@ describe("route", () => {
 	});
 });
 
+describe("route: reporter replies", () => {
+	const reply = (
+		over: {
+			sender?: string;
+			author?: string;
+			labels?: unknown[];
+			association?: string;
+			body?: string;
+			pullRequest?: boolean;
+		} = {},
+	) => ({
+		name: "issue_comment",
+		action: "created",
+		payload: {
+			issue: {
+				number: 7,
+				user: { login: over.author ?? "rita" },
+				labels: over.labels ?? [
+					{ name: "bug" },
+					{ name: "needs-info" },
+				],
+				...(over.pullRequest ? { pull_request: {} } : {}),
+			},
+			sender: { login: over.sender ?? "rita" },
+			comment: {
+				body: over.body ?? "it is the board view",
+				author_association: over.association ?? "NONE",
+			},
+		},
+	});
+
+	it("resumes when the issue author comments on a needs-info issue", () => {
+		expect(route(reply())).toEqual({
+			kind: "reply",
+			issue: 7,
+			actor: "rita",
+		});
+	});
+
+	it("reads labels given as plain strings too", () => {
+		expect(route(reply({ labels: ["needs-info"] })).kind).toBe("reply");
+	});
+
+	it("ignores the author when the issue is not waiting for information", () => {
+		expect(route(reply({ labels: [{ name: "bug" }] })).kind).toBe("ignore");
+		expect(route(reply({ labels: [] })).kind).toBe("ignore");
+	});
+
+	it("ignores anyone but the issue author, even a collaborator", () => {
+		expect(
+			route(reply({ sender: "dev", association: "MEMBER" })).kind,
+		).toBe("ignore");
+	});
+
+	it("ignores comments on pull requests", () => {
+		expect(route(reply({ pullRequest: true })).kind).toBe("ignore");
+	});
+
+	it("ignores an author-less payload instead of matching undefined to undefined", () => {
+		const event = reply();
+
+		event.payload.issue.user = undefined as never;
+		event.payload.sender = undefined as never;
+
+		expect(route(event).kind).toBe("ignore");
+	});
+
+	it("keeps retry and stop as they were, whoever wrote them", () => {
+		expect(
+			route(reply({ body: "/fixloop retry", association: "OWNER" })),
+		).toEqual({ kind: "retry", issue: 7, actor: "rita" });
+		expect(
+			route(reply({ body: "/fixloop stop", association: "MEMBER" })).kind,
+		).toBe("stop");
+		// An untrusted author's command is still refused, not read as a reply.
+		expect(
+			route(reply({ body: "/fixloop retry", association: "NONE" })).kind,
+		).toBe("ignore");
+	});
+});
+
 describe("guard", () => {
 	const start = { kind: "start" as const, issue: 7, actor: "reporter" };
 
