@@ -134,6 +134,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 		config,
 		issue,
 		dryRun: opts.dryRun,
+		artifacts: {},
 	};
 
 	const reporter = opts.dryRun

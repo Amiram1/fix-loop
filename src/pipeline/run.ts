@@ -1,5 +1,6 @@
 import type { FixLoopConfig } from "../config/schema.js";
 import type { StageState, StatusView } from "../ui/statusComment.js";
+import type { RunArtifacts } from "./artifacts.js";
 
 export interface IssueInfo {
 	number: number;
@@ -13,6 +14,8 @@ export interface RunContext {
 	config: FixLoopConfig;
 	issue: IssueInfo;
 	dryRun: boolean;
+	/** Filled in by earlier stages for later ones. See artifacts.ts for ownership. */
+	artifacts: RunArtifacts;
 }
 
 export interface StageOutcome {

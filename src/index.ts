@@ -76,7 +76,13 @@ export async function main(env = process.env): Promise<void> {
 		return;
 	}
 
-	const ctx: RunContext = { runId, config, issue, dryRun: false };
+	const ctx: RunContext = {
+		runId,
+		config,
+		issue,
+		dryRun: false,
+		artifacts: {},
+	};
 
 	const result = await runPipeline(ctx, DEFAULT_STAGES, reporter);
 
