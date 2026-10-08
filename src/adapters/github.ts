@@ -9,6 +9,9 @@ export interface IssueRef {
 	issue: number;
 }
 
+/** A repository, for calls that are not about one issue (labels, branches, pull requests). */
+export type RepoRef = Pick<IssueRef, "owner" | "repo">;
+
 /** Create the status comment, or edit the existing one (found by marker). Returns the comment id. */
 export async function upsertStatusComment(
 	octokit: Octokit,
