@@ -117,20 +117,6 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # The Playwright browser is the largest download in a run. Cached per lockfile version.
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
-
-      # Chromium needs system libraries on a fresh Linux runner, so the install runs even on a cache
-      # hit: the cache holds the browser, not the libraries.
-      - name: Install Playwright browser and system libraries
-        working-directory: frontend
-        run: pnpm exec playwright install --with-deps chromium
-
       - uses: Amiram1/fix-loop@main
         with:
           # Optional. Empty means no Slack messages. Set the FIXLOOP_SLACK_WEBHOOK repo secret to enable.

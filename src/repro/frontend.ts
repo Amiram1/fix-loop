@@ -250,8 +250,9 @@ export function frontendRunner(
 
 			if (!e2e) return;
 
-			// Idempotent: a browser that is already cached is not downloaded again.
-			const result = await exec("pnpm exec playwright install chromium", {
+			// Idempotent: a browser that is already cached is not downloaded again. --with-deps adds the system
+			// libraries a fresh Linux runner lacks. Only frontend runs pay for them, not backend runs.
+			const result = await exec("pnpm exec playwright install --with-deps chromium", {
 				cwd: join(ctx.checkout, e2e.dir),
 				env: ctx.env,
 				timeoutMs: BROWSER_INSTALL_TIMEOUT_MS,

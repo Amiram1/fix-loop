@@ -158,7 +158,13 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 			return `test files were changed: ${touched.join(", ")}. Fix the code under test instead.`;
 		}
 
+		const startedAt = Date.now();
+
 		const full = await runFull(context.checkout, context.env);
+
+		console.log(
+			`fixloop: full suite ${Math.round((Date.now() - startedAt) / 1000)}s, exit ${full.exitCode}`,
+		);
 
 		if (full.exitCode !== 0) {
 			return `the full suite fails (${opts.fullCommand}):\n${tail(full.output, 3000)}`;

@@ -420,7 +420,7 @@ describe("frontendRunner with tests.e2e", () => {
 			});
 			expect(ok.calls.map((c) => c.cmd)).toEqual([
 				"pnpm install --frozen-lockfile",
-				"pnpm exec playwright install chromium",
+				"pnpm exec playwright install --with-deps chromium",
 			]);
 			expect(ok.calls[1]?.opts).toMatchObject({
 				cwd: join(root, "frontend"),
@@ -437,7 +437,7 @@ describe("frontendRunner with tests.e2e", () => {
 				env: {},
 			});
 			expect(cached.calls.map((c) => c.cmd)).toEqual([
-				"pnpm exec playwright install chromium",
+				"pnpm exec playwright install --with-deps chromium",
 			]);
 
 			const failing = fakeExec({ code: 1, stderr: "download failed" });
@@ -472,7 +472,7 @@ describe("frontendRunner with tests.e2e", () => {
 			});
 			expect(e2e.calls).toMatchObject([
 				{
-					cmd: "pnpm exec playwright install chromium",
+					cmd: "pnpm exec playwright install --with-deps chromium",
 					opts: { cwd: join(root, "web") },
 				},
 			]);
