@@ -206,8 +206,13 @@ describe("reproduce loop", () => {
 		expect(runner.runTest).not.toHaveBeenCalled();
 	});
 
-	it("reports an unfinished attempt as not reproduced instead of throwing", async () => {
-		const client = scripted([endTurn("I could not find the bug")]);
+	it("resumes a session that stops early, then reports an unfinished attempt as not reproduced", async () => {
+		const client = scripted([
+			endTurn("I could not find the bug"),
+			endTurn("Still looking"),
+			endTurn("Giving up"),
+			endTurn("No luck"),
+		]);
 
 		const result = await reproduce(base(client, fakeRunner()));
 
@@ -216,6 +221,7 @@ describe("reproduce loop", () => {
 			area: "backend",
 		});
 		expect(result.reason).toMatch(/without finishing/);
+		expect(client.create).toHaveBeenCalledTimes(4);
 	});
 
 	it("lets a spent budget fail the run rather than hiding it as a missed reproduction", async () => {

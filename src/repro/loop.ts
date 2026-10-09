@@ -52,6 +52,26 @@ export function reproductionSystemPrompt(runner: AreaRunner): string {
 	].join("\n\n");
 }
 
+/** Sessions per reproduction. A session that ends without finish_reproduction is resumed, up to this many times. */
+const MAX_SESSIONS = 4;
+
+/** The message that resumes a reproduction: what was written, and the latest run of it. */
+function resumePrompt(
+	written: string[],
+	latest:
+		| { file: string; name: string; red: boolean; evidence: string }
+		| undefined,
+): string {
+	return [
+		"A previous session ended before finish_reproduction. Continue from here.",
+		`Tests you wrote: ${written.length > 0 ? written.join(", ") : "none yet"}.`,
+		latest
+			? `Latest run of ${latest.name} in ${latest.file}: ${latest.red ? "RED" : "NOT RED"}.\n${latest.evidence}`
+			: "No test has been run yet.",
+		"If the latest run is RED, call finish_reproduction. Otherwise fix the test and run it again.",
+	].join("\n\n");
+}
+
 /**
  * Runs the agent until it finishes a red test or runs out of turns. The status is "reproduced" only
  * when finish_reproduction was accepted, which requires the latest run of that exact test to be red.
@@ -160,6 +180,13 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 				red: verdict.red,
 				evidence: tail(run.output),
 			};
+
+			if (!verdict.red) {
+				console.log(
+					`fixloop: reproduce output: ${tail(run.output, 600).replace(/\s+/g, " ")}`,
+				);
+			}
+
 			return `${verdict.red ? "RED" : "NOT RED"}: ${verdict.reason}\n\n${tail(run.output, 3000)}`;
 		},
 	};
@@ -201,32 +228,49 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 
 	let reason: string | undefined;
 
-	try {
-		await runToolLoop({
-			client: opts.client,
-			model: opts.model,
-			system: cachedSystem(
-				withBrief(reproductionSystemPrompt(runner), opts.brief),
-			),
-			messages: [
-				{ role: "user", content: userPrompt(opts.issue, opts.hints) },
-			],
-			tools: [
-				...createRepoTools(context.checkout),
-				writeTest,
-				runTest,
-				finish,
-			],
-			maxTokens: 8000,
-			effort: opts.effort ?? "medium",
-			maxTurns: opts.maxTurns,
-			budget: opts.budget,
-		});
-	} catch (err) {
-		// A spent budget fails the run; anything else just means this attempt did not reproduce.
-		if (err instanceof BudgetExceeded) throw err;
+	// A session ends when the model stops calling tools, even before it has a red test. The next one
+	// starts from what was written and the latest run, within the turns left.
+	let turnsLeft = opts.maxTurns;
 
-		reason = (err as Error).message;
+	for (let session = 0; session < MAX_SESSIONS && turnsLeft > 0; session++) {
+		if (accepted) break;
+
+		try {
+			const result = await runToolLoop({
+				client: opts.client,
+				model: opts.model,
+				system: cachedSystem(
+					withBrief(reproductionSystemPrompt(runner), opts.brief),
+				),
+				messages: [
+					{
+						role: "user",
+						content:
+							session === 0
+								? userPrompt(opts.issue, opts.hints)
+								: resumePrompt([...written], latest),
+					},
+				],
+				tools: [
+					...createRepoTools(context.checkout),
+					writeTest,
+					runTest,
+					finish,
+				],
+				maxTokens: 8000,
+				effort: opts.effort ?? "medium",
+				maxTurns: turnsLeft,
+				budget: opts.budget,
+			});
+
+			turnsLeft -= result.turns;
+		} catch (err) {
+			// A spent budget fails the run; anything else just means this attempt did not reproduce.
+			if (err instanceof BudgetExceeded) throw err;
+
+			reason = (err as Error).message;
+			break;
+		}
 	}
 
 	const costUsd = opts.budget.spentUsd - spentBefore;
