@@ -108,6 +108,7 @@ function e2eHints(e2e: E2eConfig, alsoVitest: boolean): string {
 			: "Log in through the UI if the page needs it.",
 		"Set data up through the UI, or through page.request calls to the app's API once logged in. Keep the test short: one test per file, one thing asserted.",
 		"Find elements with page.getByTestId (the app's data-cy attributes; grep the source for them), then roles and text. Avoid CSS selectors.",
+		...(e2e.helpers ? [`Existing helpers, reuse them instead of searching for selectors: ${e2e.helpers}`] : []),
 		"Give the test a unique title with the prefix `TestRepro`, e.g. test('TestReproStorageSize', ...). Pass that same name to run_test; it is used as a regex, so use only letters, digits and underscores.",
 		"Assert the CORRECT behaviour with a web-first assertion, e.g. await expect(locator).toHaveText('2 KB'), so the test fails on an assertion while the bug is present. A timeout waiting for an element, a failed login, a wrong selector or a navigation error is NOT red.",
 	].join("\n");

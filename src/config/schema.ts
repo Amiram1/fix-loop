@@ -46,6 +46,8 @@ export const ConfigSchema = z.object({
 				new_test_glob: z.string().min(1),
 				/** Non-secret values the e2e command needs, e.g. the seeded test user. Passed to the command, never logged. */
 				env: z.record(z.string(), z.string()).default({}),
+				/** Existing helpers the agent should reuse (e.g. a login function and its file), one sentence. */
+				helpers: z.string().min(1).optional(),
 			})
 			.optional(),
 		full: z.string().min(1),
