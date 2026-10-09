@@ -339,7 +339,11 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 
 		// A session ends when the model stops calling tools, which it does mid-fix more often than it
 		// should. Each continuation resumes from the diff and the last failure, within the turns left.
-		for (let session = 0; session < MAX_SESSIONS && turnsLeft > 0; session++) {
+		for (
+			let session = 0;
+			session < MAX_SESSIONS && turnsLeft > 0;
+			session++
+		) {
 			if (accepted || rejections >= phase.limit) break;
 
 			const prompt =
@@ -352,9 +356,10 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 							opts.hints,
 						)
 					: continuationPrompt(
-							await collectDiff(context.checkout, red.testPath).then(
-								(d) => d.diff,
-							),
+							await collectDiff(
+								context.checkout,
+								red.testPath,
+							).then((d) => d.diff),
 							lastFailure,
 						);
 

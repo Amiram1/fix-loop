@@ -1,8 +1,8 @@
-export const id = 526;
-export const ids = [526];
+export const id = 55;
+export const ids = [55];
 export const modules = {
 
-/***/ 6526:
+/***/ 6055:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 // ESM COMPAT FLAG
@@ -30,8 +30,8 @@ __webpack_require__.d(__webpack_exports__, {
   setupSkills: () => (/* reexport */ setupSkills)
 });
 
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/internal/tslib.mjs
-var tslib = __webpack_require__(3364);
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/internal/tslib.mjs
+var tslib = __webpack_require__(8925);
 // EXTERNAL MODULE: external "node:fs/promises"
 var promises_ = __webpack_require__(1455);
 // EXTERNAL MODULE: external "node:fs"
@@ -44,11 +44,11 @@ var external_node_child_process_ = __webpack_require__(1421);
 var external_node_crypto_ = __webpack_require__(7598);
 // EXTERNAL MODULE: external "node:readline"
 var external_node_readline_ = __webpack_require__(481);
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/core/error.mjs
-var error = __webpack_require__(5064);
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/lib/tools/ToolError.mjs
-var ToolError = __webpack_require__(7618);
-;// CONCATENATED MODULE: ./node_modules/@anthropic-ai/sdk/helpers/beta/json-schema.mjs
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/core/error.mjs
+var error = __webpack_require__(593);
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/lib/tools/ToolError.mjs
+var ToolError = __webpack_require__(3297);
+;// CONCATENATED MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/helpers/beta/json-schema.mjs
 
 
 /**
@@ -102,9 +102,9 @@ function betaJSONSchemaOutputFormat(jsonSchema, options) {
     };
 }
 //# sourceMappingURL=json-schema.mjs.map
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/internal/utils/promise.mjs
-var promise = __webpack_require__(7793);
-;// CONCATENATED MODULE: ./node_modules/@anthropic-ai/sdk/tools/agent-toolset/fs-util.mjs
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/internal/utils/promise.mjs
+var promise = __webpack_require__(516);
+;// CONCATENATED MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/tools/agent-toolset/fs-util.mjs
 
 
 const fs = external_node_fs_.promises;
@@ -297,9 +297,9 @@ function fsErrorMessage(err, file) {
 var external_node_util_ = __webpack_require__(7975);
 // EXTERNAL MODULE: external "node:stream"
 var external_node_stream_ = __webpack_require__(7075);
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/internal/utils/log.mjs
-var utils_log = __webpack_require__(7412);
-;// CONCATENATED MODULE: ./node_modules/@anthropic-ai/sdk/tools/agent-toolset/skills.mjs
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/internal/utils/log.mjs
+var utils_log = __webpack_require__(3129);
+;// CONCATENATED MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/tools/agent-toolset/skills.mjs
 /**
  * Node-only skill plumbing for the agent toolset: downloading a session
  * agent's skills into the workdir and extracting the archives. Kept in its own
@@ -620,11 +620,11 @@ async function readHead(file, n) {
     }
 }
 //# sourceMappingURL=skills.mjs.map
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/internal/utils/bytes.mjs
-var bytes = __webpack_require__(9083);
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs
-var backoff = __webpack_require__(7594);
-;// CONCATENATED MODULE: ./node_modules/@anthropic-ai/sdk/internal/file-store.mjs
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/internal/utils/bytes.mjs
+var bytes = __webpack_require__(9286);
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs
+var backoff = __webpack_require__(3951);
+;// CONCATENATED MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/internal/file-store.mjs
 
 
 const fsp = external_node_fs_.promises;
@@ -1160,9 +1160,9 @@ if (asyncDispose) {
     });
 }
 //# sourceMappingURL=file-store.mjs.map
-// EXTERNAL MODULE: ./node_modules/@anthropic-ai/sdk/tools/agent-toolset/sync-interval.mjs
-var sync_interval = __webpack_require__(8264);
-;// CONCATENATED MODULE: ./node_modules/@anthropic-ai/sdk/tools/agent-toolset/memories.mjs
+// EXTERNAL MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/tools/agent-toolset/sync-interval.mjs
+var sync_interval = __webpack_require__(6187);
+;// CONCATENATED MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/tools/agent-toolset/memories.mjs
 var _SessionMemoryStores_instances, _SessionMemoryStores_client, _SessionMemoryStores_workdir, _SessionMemoryStores_syncIntervalMs, _SessionMemoryStores_syncDeletions, _SessionMemoryStores_log, _SessionMemoryStores_lastSyncAt, _SessionMemoryStores_finished, _SessionMemoryStores_stores, _SessionMemoryStores_storeRoot, _SessionMemoryStores_scanMarker, _SessionMemoryStores_syncStore, _SessionMemoryStores_flushStore, _SessionMemoryStores_recover, _SessionMemoryStores_settleSent, _SessionMemoryStores_stampAndPull, _SessionMemoryStores_syncPath, _SessionMemoryStores_removeLocal, _SessionMemoryStores_write, _SessionMemoryStores_pullAll, _SessionMemoryStores_uploadAll, _SessionMemoryStores_listMemories, _SessionMemoryStores_upload, _SessionMemoryStores_corroboratedDelete, _SessionMemoryStores_deleteRemote;
 
 /**
@@ -2152,7 +2152,7 @@ async function settledOrAborted(p, signal) {
     }
 }
 //# sourceMappingURL=memories.mjs.map
-;// CONCATENATED MODULE: ./node_modules/@anthropic-ai/sdk/tools/agent-toolset/node.mjs
+;// CONCATENATED MODULE: ./node_modules/.pnpm/@anthropic-ai+sdk@0.132.1_zod@4.6.5/node_modules/@anthropic-ai/sdk/tools/agent-toolset/node.mjs
 var _BashSession_instances, _BashSession_proc, _BashSession_buf, _BashSession_truncated, _BashSession_closed, _BashSession_waiting, _BashSession_append, _LineRangeCollector_instances, _LineRangeCollector_filePath, _LineRangeCollector_startLine, _LineRangeCollector_endLine, _LineRangeCollector_start, _LineRangeCollector_end, _LineRangeCollector_limit, _LineRangeCollector_line, _LineRangeCollector_collected, _LineRangeCollector_collectedBytes, _LineRangeCollector_collect, _LineRangeCollector_overLimitError;
 
 /**
