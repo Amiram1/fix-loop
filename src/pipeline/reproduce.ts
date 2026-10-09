@@ -79,7 +79,7 @@ export function makeReproduceStage(deps: ReproduceDeps): Stage {
 					runner,
 					context,
 					issue: ctx.issue,
-					maxTurns: deps.maxTurns ?? 20,
+					maxTurns: deps.maxTurns ?? ctx.config.budget.max_reproduce_turns,
 					hints: await hintsFor(deps.store, ctx),
 					brief: ctx.artifacts.brief,
 					effort: ctx.config.effort.reproduce,

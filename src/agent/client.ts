@@ -178,7 +178,10 @@ export async function runToolLoop(opts: LoopOptions): Promise<LoopResult> {
 		for (const block of response.content) {
 			if (block.type !== "tool_use") continue;
 
-			results.push(await runTool(handlers.get(block.name), block));
+			const result = await runTool(handlers.get(block.name), block);
+
+			results.push(result);
+			console.log(traceLine(turn, block, result));
 		}
 		messages.push({ role: "user", content: results });
 
@@ -194,6 +197,21 @@ export async function runToolLoop(opts: LoopOptions): Promise<LoopResult> {
 	}
 
 	throw new Error(`no final answer after ${opts.maxTurns} turns`);
+}
+
+/** One log line per tool call: what the agent asked for and the first line of what came back. */
+function traceLine(
+	turn: number,
+	block: Anthropic.ToolUseBlock,
+	result: Anthropic.ToolResultBlockParam,
+): string {
+	const input = JSON.stringify(block.input).slice(0, 160);
+
+	const text = typeof result.content === "string" ? result.content : "";
+
+	const first = text.split("\n")[0].slice(0, 120);
+
+	return `fixloop: turn ${turn} ${block.name} ${input}${result.is_error ? " (error)" : ""} -> ${first}`;
 }
 
 async function runTool(

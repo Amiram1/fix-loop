@@ -176,7 +176,7 @@ export function makeFixStage(deps: FixDeps): Stage {
 					fixModel: ctx.config.models.fix,
 					escalateModel: ctx.config.models.escalate,
 					maxAttempts: ctx.config.budget.max_fix_iterations,
-					maxTurns: deps.maxTurns ?? 30,
+					maxTurns: deps.maxTurns ?? ctx.config.budget.max_fix_turns,
 					hints: await hintsFor(deps.store, ctx),
 					brief: ctx.artifacts.brief,
 					withApp,

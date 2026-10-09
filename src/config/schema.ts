@@ -72,8 +72,17 @@ export const ConfigSchema = z.object({
 		.object({
 			per_run_usd: z.number().positive().default(1.5),
 			max_fix_iterations: z.number().int().positive().default(4),
+			/** Model turns the reproduce agent gets before it gives up. */
+			max_reproduce_turns: z.number().int().positive().default(20),
+			/** Model turns the fix agent gets across all its attempts. */
+			max_fix_turns: z.number().int().positive().default(30),
 		})
-		.default({ per_run_usd: 1.5, max_fix_iterations: 4 }),
+		.default({
+			per_run_usd: 1.5,
+			max_fix_iterations: 4,
+			max_reproduce_turns: 20,
+			max_fix_turns: 30,
+		}),
 	models: z
 		.object({
 			triage: z.string().default("claude-haiku-5-5"),
