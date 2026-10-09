@@ -285,6 +285,10 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 			if (run.exitCode === 0) return "PASS";
 
 			lastFailure = `the target test fails:\n${tail(run.output, 3000)}`;
+
+			console.log(
+				`fixloop: target test FAIL: ${tail(run.output, 600).replace(/\s+/g, " ")}`,
+			);
 			return `FAIL\n${tail(run.output, 3000)}`;
 		},
 	};

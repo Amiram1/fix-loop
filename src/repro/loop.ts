@@ -181,11 +181,9 @@ export async function reproduce(opts: ReproduceOptions): Promise<Reproduction> {
 				evidence: tail(run.output),
 			};
 
-			if (!verdict.red) {
-				console.log(
-					`fixloop: reproduce output: ${tail(run.output, 600).replace(/\s+/g, " ")}`,
-				);
-			}
+			console.log(
+				`fixloop: reproduce run ${verdict.red ? "RED" : "NOT RED"}: ${tail(run.output, 600).replace(/\s+/g, " ")}`,
+			);
 
 			return `${verdict.red ? "RED" : "NOT RED"}: ${verdict.reason}\n\n${tail(run.output, 3000)}`;
 		},
