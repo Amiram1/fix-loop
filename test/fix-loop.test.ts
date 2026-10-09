@@ -116,6 +116,26 @@ describe("fixBug", () => {
 		...overrides,
 	});
 
+	it("resumes a session that stops without finishing, and accepts the fix it then makes", async () => {
+		const { client, create } = scripted([
+			toolUse("1", "edit_file", {
+				path: "src/value.txt",
+				old_string: "bad\n",
+				new_string: "ok\n",
+			}),
+			endTurn("The change is in place."),
+			toolUse("2", "finish_fix", { summary: "fixed" }),
+		]);
+
+		const result = await fixBug(base(client));
+
+		expect(result.status).toBe("fixed");
+		expect(create).toHaveBeenCalledTimes(3);
+		expect(JSON.stringify(create.mock.calls[2][0].messages)).toContain(
+			"A previous attempt did not finish",
+		);
+	});
+
 	it("accepts a fix made in the first phase, once the target and full suite pass", async () => {
 		const { client } = scripted([
 			toolUse("1", "edit_file", {

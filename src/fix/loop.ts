@@ -56,6 +56,9 @@ export function runRedTest(
 	);
 }
 
+/** Sessions per model phase. A session that ends without finish_fix is resumed, up to this many times. */
+const MAX_SESSIONS = 4;
+
 export interface FixOptions {
 	client: MessagesApi;
 	budget: BudgetTracker;
@@ -279,9 +282,10 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 		run: async () => {
 			const run = await runTarget();
 
-			return run.exitCode === 0
-				? "PASS"
-				: `FAIL\n${tail(run.output, 3000)}`;
+			if (run.exitCode === 0) return "PASS";
+
+			lastFailure = `the target test fails:\n${tail(run.output, 3000)}`;
+			return `FAIL\n${tail(run.output, 3000)}`;
 		},
 	};
 
@@ -326,54 +330,64 @@ export async function fixBug(opts: FixOptions): Promise<FixResult> {
 		},
 	];
 
+	let turnsLeft = opts.maxTurns;
+
 	for (const [index, phase] of phases.entries()) {
 		if (accepted || rejections >= opts.maxAttempts) break;
 
 		models.push(phase.model);
 
-		const first = index === 0;
+		// A session ends when the model stops calling tools, which it does mid-fix more often than it
+		// should. Each continuation resumes from the diff and the last failure, within the turns left.
+		for (let session = 0; session < MAX_SESSIONS && turnsLeft > 0; session++) {
+			if (accepted || rejections >= phase.limit) break;
 
-		const prompt = first
-			? startPrompt(
-					opts.issue,
-					red.testPath,
-					red.testName,
-					red.evidence,
-					opts.hints,
-				)
-			: continuationPrompt(
-					await collectDiff(context.checkout, red.testPath).then(
-						(d) => d.diff,
+			const prompt =
+				index === 0 && session === 0
+					? startPrompt(
+							opts.issue,
+							red.testPath,
+							red.testName,
+							red.evidence,
+							opts.hints,
+						)
+					: continuationPrompt(
+							await collectDiff(context.checkout, red.testPath).then(
+								(d) => d.diff,
+							),
+							lastFailure,
+						);
+
+			try {
+				const result = await runToolLoop({
+					client: opts.client,
+					model: phase.model,
+					system: cachedSystem(
+						withBrief(fixSystemPrompt(runner), opts.brief),
 					),
-					lastFailure,
-				);
+					messages: [{ role: "user", content: prompt }],
+					tools: [
+						...createRepoTools(context.checkout),
+						editFile,
+						createFile,
+						runTargetTest,
+						finishFix,
+					],
+					stopWhen: () => accepted || rejections >= phase.limit,
+					maxTokens: 8000,
+					effort: phase.effort,
+					maxTurns: turnsLeft,
+					budget: opts.budget,
+				});
 
-		try {
-			await runToolLoop({
-				client: opts.client,
-				model: phase.model,
-				system: cachedSystem(
-					withBrief(fixSystemPrompt(runner), opts.brief),
-				),
-				messages: [{ role: "user", content: prompt }],
-				tools: [
-					...createRepoTools(context.checkout),
-					editFile,
-					createFile,
-					runTargetTest,
-					finishFix,
-				],
-				stopWhen: () => accepted || rejections >= phase.limit,
-				maxTokens: 8000,
-				effort: phase.effort,
-				maxTurns: opts.maxTurns,
-				budget: opts.budget,
-			});
-		} catch (err) {
-			// A spent budget fails the run. Anything else ends this phase and lets the next one try.
-			if (err instanceof BudgetExceeded) throw err;
+				turnsLeft -= result.turns;
+			} catch (err) {
+				// A spent budget fails the run. Anything else ends this phase and lets the next one try.
+				if (err instanceof BudgetExceeded) throw err;
 
-			reason = (err as Error).message;
+				reason = (err as Error).message;
+				break;
+			}
 		}
 	}
 
